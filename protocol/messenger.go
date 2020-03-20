@@ -2808,6 +2808,11 @@ func (m *Messenger) ValidateTransactions(ctx context.Context, addresses []types.
 	return &response, nil
 }
 
+func (m *Messenger) SignMessage(message string) ([]byte, error) {
+	hash := crypto.TextHash([]byte(message))
+	return crypto.Sign(hash, m.identity)
+}
+
 func (m *Messenger) getTimesource() TimeSource {
 	return m.transport
 }
