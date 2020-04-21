@@ -16,7 +16,7 @@
 // This software uses the go-ethereum library, which is licensed
 // under the GNU Lesser General Public Library, version 3 or any later.
 
-package waku
+package peerv0
 
 import (
 	"bytes"
@@ -517,7 +517,7 @@ func TestPeerHandshakeWithTwoFullNode(t *testing.T) {
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
 			ProtocolVersion,
-			statusOptions{PoWRequirement: &pow},
+			StatusOptions{PoWRequirement: &pow},
 		}},
 		nil,
 	)
@@ -536,7 +536,7 @@ func TestHandshakeWithOldVersionWithoutLightModeFlag(t *testing.T) {
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
 			ProtocolVersion,
-			statusOptions{PoWRequirement: &pow},
+			StatusOptions{PoWRequirement: &pow},
 		}},
 		nil,
 	)
@@ -590,7 +590,7 @@ func TestTwoLightPeerHandshakeRestrictionOff(t *testing.T) {
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
 			ProtocolVersion,
-			statusOptions{PoWRequirement: &pow, LightNodeEnabled: &lightNodeEnabled},
+			StatusOptions{PoWRequirement: &pow, LightNodeEnabled: &lightNodeEnabled},
 		}},
 		nil,
 	)

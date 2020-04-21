@@ -23,6 +23,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/status-im/status-go/waku/types"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
@@ -79,7 +81,7 @@ func CreateMailServerRequestFailedPayload(requestID common.Hash, err error) []by
 // * request completed successfully
 // * request failed
 // If the payload is unknown/unparseable, it returns `nil`
-func CreateMailServerEvent(nodeID enode.ID, payload []byte) (*EnvelopeEvent, error) {
+func CreateMailServerEvent(nodeID enode.ID, payload []byte) (*types.EnvelopeEvent, error) {
 	if len(payload) < common.HashLength {
 		return nil, invalidResponseSizeError(len(payload))
 	}
@@ -94,7 +96,7 @@ func CreateMailServerEvent(nodeID enode.ID, payload []byte) (*EnvelopeEvent, err
 	return tryCreateMailServerRequestCompletedEvent(nodeID, payload)
 }
 
-func tryCreateMailServerRequestFailedEvent(nodeID enode.ID, payload []byte) (*EnvelopeEvent, error) {
+func tryCreateMailServerRequestFailedEvent(nodeID enode.ID, payload []byte) (*types.EnvelopeEvent, error) {
 	if len(payload) < common.HashLength+len(mailServerFailedPayloadPrefix) {
 		return nil, nil
 	}
@@ -113,10 +115,10 @@ func tryCreateMailServerRequestFailedEvent(nodeID enode.ID, payload []byte) (*En
 	requestID, remainder = extractHash(remainder)
 	errorMsg = string(remainder)
 
-	event := EnvelopeEvent{
+	event := types.EnvelopeEvent{
 		Peer:  nodeID,
 		Hash:  requestID,
-		Event: EventMailServerRequestCompleted,
+		Event: types.EventMailServerRequestCompleted,
 		Data: &MailServerResponse{
 			Error: errors.New(errorMsg),
 		},
@@ -126,7 +128,7 @@ func tryCreateMailServerRequestFailedEvent(nodeID enode.ID, payload []byte) (*En
 
 }
 
-func tryCreateMailServerRequestCompletedEvent(nodeID enode.ID, payload []byte) (*EnvelopeEvent, error) {
+func tryCreateMailServerRequestCompletedEvent(nodeID enode.ID, payload []byte) (*types.EnvelopeEvent, error) {
 	// check if payload is
 	// - requestID or
 	// - requestID + lastEnvelopeHash or
@@ -154,10 +156,10 @@ func tryCreateMailServerRequestCompletedEvent(nodeID enode.ID, payload []byte) (
 		cursor = remainder
 	}
 
-	event := EnvelopeEvent{
+	event := types.EnvelopeEvent{
 		Peer:  nodeID,
 		Hash:  requestID,
-		Event: EventMailServerRequestCompleted,
+		Event: types.EventMailServerRequestCompleted,
 		Data: &MailServerResponse{
 			LastEnvelopeHash: lastEnvelopeHash,
 			Cursor:           cursor,

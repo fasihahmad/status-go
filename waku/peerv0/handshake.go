@@ -1,4 +1,4 @@
-package waku
+package peerv0
 
 import (
 	"errors"
@@ -9,9 +9,11 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/rlp"
+
+	types "github.com/status-im/status-go/waku/types"
 )
 
-// statusOptionKey is a current type used in statusOptions as a key.
+// statusOptionKey is a current type used in StatusOptions as a key.
 type statusOptionKey string
 
 var (
@@ -20,24 +22,24 @@ var (
 	keyFieldIdx   = make(map[statusOptionKey]int)
 )
 
-// statusOptions defines additional information shared between peers
+// StatusOptions defines additional information shared between peers
 // during the handshake.
-// There might be more options provided then fields in statusOptions
+// There might be more options provided then fields in StatusOptions
 // and they should be ignored during deserialization to stay forward compatible.
 // In the case of RLP, options should be serialized to an array of tuples
 // where the first item is a field name and the second is a RLP-serialized value.
-type statusOptions struct {
-	PoWRequirement       *uint64     `rlp:"key=0"` // RLP does not support float64 natively
-	BloomFilter          []byte      `rlp:"key=1"`
-	LightNodeEnabled     *bool       `rlp:"key=2"`
-	ConfirmationsEnabled *bool       `rlp:"key=3"`
-	RateLimits           *RateLimits `rlp:"key=4"`
-	TopicInterest        []TopicType `rlp:"key=5"`
+type StatusOptions struct {
+	PoWRequirementExport       *uint64           `rlp:"key=0"` // RLP does not support float64 natively
+	BloomFilterExport          []byte            `rlp:"key=1"`
+	LightNodeEnabledExport     *bool             `rlp:"key=2"`
+	ConfirmationsEnabledExport *bool             `rlp:"key=3"`
+	RateLimitsExport           *types.RateLimits `rlp:"key=4"`
+	TopicInterestExport        []types.TopicType `rlp:"key=5"`
 }
 
 // initFLPKeyFields initialises the values of `idxFieldKey` and `keyFieldIdx`
 func initRLPKeyFields() {
-	o := statusOptions{}
+	o := StatusOptions{}
 	v := reflect.ValueOf(o)
 
 	for i := 0; i < v.NumField(); i++ {
@@ -67,46 +69,46 @@ func initRLPKeyFields() {
 // WithDefaults adds the default values for a given peer.
 // This are not the host default values, but the default values that ought to
 // be used when receiving from an update from a peer.
-func (o statusOptions) WithDefaults() statusOptions {
-	if o.PoWRequirement == nil {
-		o.PoWRequirement = &defaultMinPoW
+func (o StatusOptions) WithDefaults() StatusOptions {
+	if o.PoWRequirementExport == nil {
+		o.PoWRequirementExport = &defaultMinPoW
 	}
 
-	if o.LightNodeEnabled == nil {
+	if o.LightNodeEnabledExport == nil {
 		lightNodeEnabled := false
-		o.LightNodeEnabled = &lightNodeEnabled
+		o.LightNodeEnabledExport = &lightNodeEnabled
 	}
 
-	if o.ConfirmationsEnabled == nil {
+	if o.ConfirmationsEnabledExport == nil {
 		confirmationsEnabled := false
-		o.ConfirmationsEnabled = &confirmationsEnabled
+		o.ConfirmationsEnabledExport = &confirmationsEnabled
 	}
 
-	if o.RateLimits == nil {
-		o.RateLimits = &RateLimits{}
+	if o.RateLimitsExport == nil {
+		o.RateLimitsExport = &types.RateLimits{}
 	}
 
-	if o.BloomFilter == nil {
-		o.BloomFilter = MakeFullNodeBloom()
+	if o.BloomFilterExport == nil {
+		o.BloomFilterExport = types.MakeFullNodeBloom()
 	}
 
 	return o
 }
 
-func (o statusOptions) PoWRequirementF() *float64 {
-	if o.PoWRequirement == nil {
+func (o StatusOptions) PoWRequirementF() *float64 {
+	if o.PoWRequirementExport == nil {
 		return nil
 	}
-	result := math.Float64frombits(*o.PoWRequirement)
+	result := math.Float64frombits(*o.PoWRequirementExport)
 	return &result
 }
 
-func (o *statusOptions) SetPoWRequirementFromF(val float64) {
+func (o *StatusOptions) SetPoWRequirementFromF(val float64) {
 	requirement := math.Float64bits(val)
-	o.PoWRequirement = &requirement
+	o.PoWRequirementExport = &requirement
 }
 
-func (o statusOptions) EncodeRLP(w io.Writer) error {
+func (o StatusOptions) EncodeRLP(w io.Writer) error {
 	v := reflect.ValueOf(o)
 	var optionsList []interface{}
 	for i := 0; i < v.NumField(); i++ {
@@ -125,7 +127,7 @@ func (o statusOptions) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, optionsList)
 }
 
-func (o *statusOptions) DecodeRLP(s *rlp.Stream) error {
+func (o *StatusOptions) DecodeRLP(s *rlp.Stream) error {
 	_, err := s.List()
 	if err != nil {
 		return fmt.Errorf("expected an outer list: %v", err)
@@ -172,9 +174,33 @@ loop:
 	return s.ListEnd()
 }
 
-func (o statusOptions) Validate() error {
-	if len(o.TopicInterest) > 1000 {
+func (o StatusOptions) Validate() error {
+	if len(o.TopicInterestExport) > 1000 {
 		return errors.New("topic interest is limited by 1000 items")
 	}
 	return nil
+}
+
+func (o StatusOptions) BloomFilter() []byte {
+	return o.BloomFilterExport
+}
+
+func (o StatusOptions) ConfirmationsEnabled() *bool {
+	return o.ConfirmationsEnabledExport
+}
+
+func (o StatusOptions) LightNodeEnabled() *bool {
+	return o.LightNodeEnabledExport
+}
+
+func (o StatusOptions) PoWRequirement() *uint64 {
+	return o.PoWRequirementExport
+}
+
+func (o StatusOptions) RateLimits() *types.RateLimits {
+	return o.RateLimitsExport
+}
+
+func (o StatusOptions) TopicInterest() []types.TopicType {
+	return o.TopicInterestExport
 }

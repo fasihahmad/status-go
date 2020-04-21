@@ -16,7 +16,7 @@
 // This software uses the go-ethereum library, which is licensed
 // under the GNU Lesser General Public Library, version 3 or any later.
 
-package waku
+package types
 
 import (
 	"bytes"
@@ -34,7 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-func generateMessageParams() (*MessageParams, error) {
+func GenerateMessageParams() (*MessageParams, error) {
 	// set all the parameters except p.Dst and p.Padding
 
 	buf := make([]byte, 4)
@@ -61,9 +61,9 @@ func generateMessageParams() (*MessageParams, error) {
 }
 
 func singleMessageTest(t *testing.T, symmetric bool) {
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 
 	key, err := crypto.GenerateKey()
@@ -132,9 +132,9 @@ func TestMessageWrap(t *testing.T) {
 	mrand.Seed(seed)
 	target := 128.0
 
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 
 	msg, err := NewSentMessage(params)
@@ -173,9 +173,9 @@ func TestMessageSeal(t *testing.T) {
 	seed = int64(1976726903)
 	mrand.Seed(seed)
 
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 
 	msg, err := NewSentMessage(params)
@@ -219,9 +219,9 @@ func TestEnvelopeOpen(t *testing.T) {
 }
 
 func singleEnvelopeOpenTest(t *testing.T, symmetric bool) {
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 
 	key, err := crypto.GenerateKey()
@@ -288,9 +288,9 @@ func singleEnvelopeOpenTest(t *testing.T, symmetric bool) {
 func TestEncryptWithZeroKey(t *testing.T) {
 	InitSingleTest()
 
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 	msg, err := NewSentMessage(params)
 	if err != nil {
@@ -302,9 +302,9 @@ func TestEncryptWithZeroKey(t *testing.T) {
 		t.Fatalf("wrapped with zero key, seed: %d.", seed)
 	}
 
-	params, err = generateMessageParams()
+	params, err = GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 	msg, err = NewSentMessage(params)
 	if err != nil {
@@ -316,9 +316,9 @@ func TestEncryptWithZeroKey(t *testing.T) {
 		t.Fatalf("wrapped with empty key, seed: %d.", seed)
 	}
 
-	params, err = generateMessageParams()
+	params, err = GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 	msg, err = NewSentMessage(params)
 	if err != nil {
@@ -334,9 +334,9 @@ func TestEncryptWithZeroKey(t *testing.T) {
 func TestRlpEncode(t *testing.T) {
 	InitSingleTest()
 
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 	msg, err := NewSentMessage(params)
 	if err != nil {
@@ -367,9 +367,9 @@ func TestRlpEncode(t *testing.T) {
 }
 
 func singlePaddingTest(t *testing.T, padSize int) {
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d and sz=%d: %s.", seed, padSize, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d and sz=%d: %s.", seed, padSize, err)
 	}
 	params.Padding = make([]byte, padSize)
 	params.PoW = 0.0000000001

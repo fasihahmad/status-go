@@ -16,7 +16,7 @@
 // This software uses the go-ethereum library, which is licensed
 // under the GNU Lesser General Public Library, version 3 or any later.
 
-package waku
+package types
 
 import (
 	"math/big"
@@ -185,7 +185,7 @@ func TestInstallIdenticalFilters(t *testing.T) {
 		t.Fatalf("Error installing the second filter with seed %d: %s", seed, err)
 	}
 
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
 		t.Fatalf("Error generating message parameters with seed %d: %s", seed, err)
 	}
@@ -295,9 +295,9 @@ func TestMatchEnvelope(t *testing.T) {
 		t.Fatalf("failed generateFilter() with seed %d: %s.", seed, err)
 	}
 
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 
 	params.Topic[0] = 0xFF // topic mismatch
@@ -428,9 +428,9 @@ func TestMatchEnvelope(t *testing.T) {
 func TestMatchMessageSym(t *testing.T) {
 	InitSingleTest()
 
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 
 	f, err := generateFilter(t, true)
@@ -525,9 +525,9 @@ func TestMatchMessageAsym(t *testing.T) {
 		t.Fatalf("failed generateFilter with seed %d: %s.", seed, err)
 	}
 
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 
 	const index = 1
@@ -613,9 +613,9 @@ func cloneFilter(orig *Filter) *Filter {
 }
 
 func generateCompatibeEnvelope(t *testing.T, f *Filter) *Envelope {
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 		return nil
 	}
 
@@ -796,9 +796,9 @@ func TestVariableTopics(t *testing.T) {
 
 	const lastTopicByte = 3
 	var match bool
-	params, err := generateMessageParams()
+	params, err := GenerateMessageParams()
 	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
+		t.Fatalf("failed GenerateMessageParams with seed %d: %s.", seed, err)
 	}
 	msg, err := NewSentMessage(params)
 	if err != nil {

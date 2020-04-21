@@ -16,7 +16,7 @@
 // This software uses the go-ethereum library, which is licensed
 // under the GNU Lesser General Public Library, version 3 or any later.
 
-package waku
+package types
 
 import (
 	"crypto/aes"
@@ -164,7 +164,7 @@ func NewMessagesResponse(batch common.Hash, errors []EnvelopeError) Version1Mess
 	}
 }
 
-func isMessageSigned(flags byte) bool {
+func IsMessageSigned(flags byte) bool {
 	return (flags & signatureFlag) != 0
 }
 
@@ -228,7 +228,7 @@ func (msg *sentMessage) appendPadding(params *MessageParams) error {
 	if err != nil {
 		return err
 	}
-	if !validateDataIntegrity(pad, paddingSize) {
+	if !ValidateDataIntegrity(pad, paddingSize) {
 		return errors.New("failed to generate random padding of size " + strconv.Itoa(paddingSize))
 	}
 	msg.Raw = append(msg.Raw, pad...)
@@ -238,7 +238,7 @@ func (msg *sentMessage) appendPadding(params *MessageParams) error {
 // sign calculates and sets the cryptographic signature for the message,
 // also setting the sign flag.
 func (msg *sentMessage) sign(key *ecdsa.PrivateKey) error {
-	if isMessageSigned(msg.Raw[0]) {
+	if IsMessageSigned(msg.Raw[0]) {
 		// this should not happen, but no reason to panic
 		log.Error("failed to sign the message: already signed")
 		return nil
@@ -270,7 +270,7 @@ func (msg *sentMessage) encryptAsymmetric(key *ecdsa.PublicKey) error {
 // encryptSymmetric encrypts a message with a topic key, using AES-GCM-256.
 // nonce size should be 12 bytes (see cipher.gcmStandardNonceSize).
 func (msg *sentMessage) encryptSymmetric(key []byte) (err error) {
-	if !validateDataIntegrity(key, aesKeyLength) {
+	if !ValidateDataIntegrity(key, aesKeyLength) {
 		return errors.New("invalid key provided for symmetric encryption, size: " + strconv.Itoa(len(key)))
 	}
 	block, err := aes.NewCipher(key)
@@ -281,7 +281,7 @@ func (msg *sentMessage) encryptSymmetric(key []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	salt, err := generateSecureRandomData(aesNonceLength) // never use more than 2^32 random nonces with a given key
+	salt, err := GenerateSecureRandomData(aesNonceLength) // never use more than 2^32 random nonces with a given key
 	if err != nil {
 		return err
 	}
@@ -290,12 +290,12 @@ func (msg *sentMessage) encryptSymmetric(key []byte) (err error) {
 	return nil
 }
 
-// generateSecureRandomData generates random data where extra security is required.
+// GenerateSecureRandomData generates random data where extra security is required.
 // The purpose of this function is to prevent some bugs in software or in hardware
 // from delivering not-very-random data. This is especially useful for AES nonce,
 // where true randomness does not really matter, but it is very important to have
 // a unique nonce for every message.
-func generateSecureRandomData(length int) ([]byte, error) {
+func GenerateSecureRandomData(length int) ([]byte, error) {
 	x := make([]byte, length)
 	y := make([]byte, length)
 	res := make([]byte, length)
@@ -303,19 +303,19 @@ func generateSecureRandomData(length int) ([]byte, error) {
 	_, err := crand.Read(x)
 	if err != nil {
 		return nil, err
-	} else if !validateDataIntegrity(x, length) {
+	} else if !ValidateDataIntegrity(x, length) {
 		return nil, errors.New("crypto/rand failed to generate secure random data")
 	}
 	_, err = mrand.Read(y) // nolint: gosec
 	if err != nil {
 		return nil, err
-	} else if !validateDataIntegrity(y, length) {
+	} else if !ValidateDataIntegrity(y, length) {
 		return nil, errors.New("math/rand failed to generate secure random data")
 	}
 	for i := 0; i < length; i++ {
 		res[i] = x[i] ^ y[i]
 	}
-	if !validateDataIntegrity(res, length) {
+	if !ValidateDataIntegrity(res, length) {
 		return nil, errors.New("failed to generate secure random data")
 	}
 	return res, nil
@@ -391,7 +391,7 @@ func (msg *ReceivedMessage) ValidateAndParse() bool {
 		return false
 	}
 
-	if isMessageSigned(msg.Raw[0]) {
+	if IsMessageSigned(msg.Raw[0]) {
 		end -= signatureLength
 		if end <= 1 {
 			return false
@@ -410,7 +410,7 @@ func (msg *ReceivedMessage) ValidateAndParse() bool {
 		if end < beg+sizeOfPayloadSizeField {
 			return false
 		}
-		payloadSize = int(bytesToUintLittleEndian(msg.Raw[beg : beg+sizeOfPayloadSizeField]))
+		payloadSize = int(BytesToUintLittleEndian(msg.Raw[beg : beg+sizeOfPayloadSizeField]))
 		beg += sizeOfPayloadSizeField
 		if beg+payloadSize > end {
 			return false
@@ -439,9 +439,38 @@ func (msg *ReceivedMessage) SigToPubKey() *ecdsa.PublicKey {
 
 // hash calculates the SHA3 checksum of the message flags, payload size field, payload and padding.
 func (msg *ReceivedMessage) hash() []byte {
-	if isMessageSigned(msg.Raw[0]) {
+	if IsMessageSigned(msg.Raw[0]) {
 		sz := len(msg.Raw) - signatureLength
 		return crypto.Keccak256(msg.Raw[:sz])
 	}
 	return crypto.Keccak256(msg.Raw)
+}
+
+// BytesToUintLittleEndian converts the slice to 64-bit unsigned integer.
+func BytesToUintLittleEndian(b []byte) (res uint64) {
+	mul := uint64(1)
+	for i := 0; i < len(b); i++ {
+		res += uint64(b[i]) * mul
+		mul *= 256
+	}
+	return res
+}
+
+// BytesToUintBigEndian converts the slice to 64-bit unsigned integer.
+func BytesToUintBigEndian(b []byte) (res uint64) {
+	for i := 0; i < len(b); i++ {
+		res *= 256
+		res += uint64(b[i])
+	}
+	return res
+}
+
+// ContainsOnlyZeros checks if the data contain only zeros.
+func ContainsOnlyZeros(data []byte) bool {
+	for _, b := range data {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
 }

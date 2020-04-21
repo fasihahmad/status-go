@@ -16,7 +16,7 @@
 // This software uses the go-ethereum library, which is licensed
 // under the GNU Lesser General Public Library, version 3 or any later.
 
-package waku
+package types
 
 import (
 	"crypto/ecdsa"
@@ -90,17 +90,15 @@ type Filters struct {
 	topicMatcher     map[TopicType]map[*Filter]struct{} // map a topic to the filters that are interested in being notified when a message matches that topic
 	allTopicsMatcher map[*Filter]struct{}               // list all the filters that will be notified of a new message, no matter what its topic is
 
-	waku  *Waku
 	mutex sync.RWMutex
 }
 
 // NewFilters returns a newly created filter collection
-func NewFilters(w *Waku) *Filters {
+func NewFilters() *Filters {
 	return &Filters{
 		watchers:         make(map[string]*Filter),
 		topicMatcher:     make(map[TopicType]map[*Filter]struct{}),
 		allTopicsMatcher: make(map[*Filter]struct{}),
-		waku:             w,
 	}
 }
 
@@ -170,9 +168,9 @@ func (fs *Filters) removeFromTopicMatchers(watcher *Filter) {
 	}
 }
 
-// getWatchersByTopic returns a slice containing the filters that
+// GetWatchersByTopic returns a slice containing the filters that
 // match a specific topic
-func (fs *Filters) getWatchersByTopic(topic TopicType) []*Filter {
+func (fs *Filters) GetWatchersByTopic(topic TopicType) []*Filter {
 	res := make([]*Filter, 0, len(fs.allTopicsMatcher))
 	for watcher := range fs.allTopicsMatcher {
 		res = append(res, watcher)
@@ -198,7 +196,7 @@ func (fs *Filters) NotifyWatchers(env *Envelope, p2pMessage bool) {
 	fs.mutex.RLock()
 	defer fs.mutex.RUnlock()
 
-	candidates := fs.getWatchersByTopic(env.Topic)
+	candidates := fs.GetWatchersByTopic(env.Topic)
 	for _, watcher := range candidates {
 		if p2pMessage && !watcher.AllowP2P {
 			log.Trace(fmt.Sprintf("msg [%x], filter [%s]: p2p messages are not allowed", env.Hash(), watcher.id))
@@ -292,4 +290,9 @@ func IsPubKeyEqual(a, b *ecdsa.PublicKey) bool {
 	}
 	// the curve is always the same, just compare the points
 	return a.X.Cmp(b.X) == 0 && a.Y.Cmp(b.Y) == 0
+}
+
+// ValidatePublicKey checks the format of the given public key.
+func ValidatePublicKey(k *ecdsa.PublicKey) bool {
+	return k != nil && k.X != nil && k.Y != nil && k.X.Sign() != 0 && k.Y.Sign() != 0
 }

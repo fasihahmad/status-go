@@ -16,7 +16,7 @@
 // This software uses the go-ethereum library, which is licensed
 // under the GNU Lesser General Public Library, version 3 or any later.
 
-package waku
+package types
 
 import (
 	"bytes"
@@ -40,11 +40,11 @@ type RateLimiterHandler interface {
 type MetricsRateLimiterHandler struct{}
 
 func (MetricsRateLimiterHandler) ExceedPeerLimit() error {
-	rateLimitsExceeded.WithLabelValues("peer_id").Inc()
+	RateLimitsExceeded.WithLabelValues("peer_id").Inc()
 	return nil
 }
 func (MetricsRateLimiterHandler) ExceedIPLimit() error {
-	rateLimitsExceeded.WithLabelValues("ip").Inc()
+	RateLimitsExceeded.WithLabelValues("ip").Inc()
 	return nil
 }
 
@@ -105,8 +105,8 @@ type PeerRateLimiter struct {
 	peerIDThrottler *tb.Throttler
 	ipThrottler     *tb.Throttler
 
-	limitPerSecIP     int64
-	limitPerSecPeerID int64
+	LimitPerSecIP     int64
+	LimitPerSecPeerID int64
 
 	whitelistedPeerIDs []enode.ID
 	whitelistedIPs     []string
@@ -123,15 +123,15 @@ func NewPeerRateLimiter(cfg *PeerRateLimiterConfig, handlers ...RateLimiterHandl
 	return &PeerRateLimiter{
 		peerIDThrottler:    tb.NewThrottler(time.Millisecond * 100),
 		ipThrottler:        tb.NewThrottler(time.Millisecond * 100),
-		limitPerSecIP:      cfg.LimitPerSecIP,
-		limitPerSecPeerID:  cfg.LimitPerSecPeerID,
+		LimitPerSecIP:      cfg.LimitPerSecIP,
+		LimitPerSecPeerID:  cfg.LimitPerSecPeerID,
 		whitelistedPeerIDs: cfg.WhitelistedPeerIDs,
 		whitelistedIPs:     cfg.WhitelistedIPs,
 		handlers:           handlers,
 	}
 }
 
-func (r *PeerRateLimiter) decorate(p WakuPeer, rw p2p.MsgReadWriter, runLoop runLoop) error {
+func (r *PeerRateLimiter) Decorate(p WakuPeer, rw p2p.MsgReadWriter, runLoop runLoop) error {
 	in, out := p2p.MsgPipe()
 	defer in.Close()
 	defer out.Close()
@@ -146,7 +146,7 @@ func (r *PeerRateLimiter) decorate(p WakuPeer, rw p2p.MsgReadWriter, runLoop run
 				return
 			}
 
-			rateLimitsProcessed.Inc()
+			RateLimitsProcessed.Inc()
 
 			var ip string
 			if p != nil {
@@ -208,19 +208,19 @@ func (r *PeerRateLimiter) decorate(p WakuPeer, rw p2p.MsgReadWriter, runLoop run
 // throttleIP throttles a number of messages incoming from a given IP.
 // It allows 10 packets per second.
 func (r *PeerRateLimiter) throttleIP(ip string) bool {
-	if r.limitPerSecIP == 0 {
+	if r.LimitPerSecIP == 0 {
 		return false
 	}
 	if stringSliceContains(r.whitelistedIPs, ip) {
 		return false
 	}
-	return r.ipThrottler.Halt(ip, 1, r.limitPerSecIP)
+	return r.ipThrottler.Halt(ip, 1, r.LimitPerSecIP)
 }
 
 // throttlePeer throttles a number of messages incoming from a peer.
 // It allows 3 packets per second.
 func (r *PeerRateLimiter) throttlePeer(peerID []byte) bool {
-	if r.limitPerSecIP == 0 {
+	if r.LimitPerSecIP == 0 {
 		return false
 	}
 	var id enode.ID
@@ -228,7 +228,7 @@ func (r *PeerRateLimiter) throttlePeer(peerID []byte) bool {
 	if enodeIDSliceContains(r.whitelistedPeerIDs, id) {
 		return false
 	}
-	return r.peerIDThrottler.Halt(id.String(), 1, r.limitPerSecPeerID)
+	return r.peerIDThrottler.Halt(id.String(), 1, r.LimitPerSecPeerID)
 }
 
 func stringSliceContains(s []string, searched string) bool {
