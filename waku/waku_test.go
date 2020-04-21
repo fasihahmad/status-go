@@ -1123,7 +1123,7 @@ func TestHandleP2PMessageCode(t *testing.T) {
 	rwStub.payload = []interface{}{[]*Envelope{env}}
 
 	peer := newPeer(nil, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), nil, nil)
-	peer.trusted = true
+	peer.SetPeerTrusted(true)
 
 	err = w.runMessageLoop(peer, rwStub)
 	if err != nil && err != errRWStub {
@@ -1684,7 +1684,7 @@ func TestMailserverCompletionEvent(t *testing.T) {
 
 	rw1, rw2 := p2p.MsgPipe()
 	peer := newPeer(w, p2p.NewPeer(enode.ID{1}, "1", nil), rw1, nil)
-	peer.trusted = true
+	peer.SetPeerTrusted(true)
 	w.peers[peer] = struct{}{}
 
 	events := make(chan EnvelopeEvent)

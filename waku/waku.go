@@ -83,8 +83,8 @@ type Waku struct {
 	expirations map[uint32]mapset.Set     // Message expiration pool
 	poolMu      sync.RWMutex              // Mutex to sync the message and expiration pools
 
-	peers  map[*Peer]struct{} // Set of currently active peers
-	peerMu sync.RWMutex       // Mutex to sync the active peer set
+	peers  map[WakuPeer]struct{} // Set of currently active peers
+	peerMu sync.RWMutex          // Mutex to sync the active peer set
 
 	msgQueue    chan *Envelope   // Message queue for normal waku messages
 	p2pMsgQueue chan interface{} // Message queue for peer-to-peer messages (not to be forwarded any further) and history delivery confirmations.
@@ -129,7 +129,7 @@ func New(cfg *Config, logger *zap.Logger) *Waku {
 		symKeys:     make(map[string][]byte),
 		envelopes:   make(map[common.Hash]*Envelope),
 		expirations: make(map[uint32]mapset.Set),
-		peers:       make(map[*Peer]struct{}),
+		peers:       make(map[WakuPeer]struct{}),
 		msgQueue:    make(chan *Envelope, messageQueueLimit),
 		p2pMsgQueue: make(chan interface{}, messageQueueLimit),
 		quit:        make(chan struct{}),
@@ -536,8 +536,8 @@ func (w *Waku) notifyPeersAboutTopicInterestChange(topicInterest []TopicType) {
 	}
 }
 
-func (w *Waku) getPeers() []*Peer {
-	arr := make([]*Peer, len(w.peers))
+func (w *Waku) getPeers() []WakuPeer {
+	arr := make([]WakuPeer, len(w.peers))
 	i := 0
 	w.peerMu.Lock()
 	for p := range w.peers {
@@ -549,12 +549,11 @@ func (w *Waku) getPeers() []*Peer {
 }
 
 // getPeer retrieves peer by ID
-func (w *Waku) getPeer(peerID []byte) (*Peer, error) {
+func (w *Waku) getPeer(peerID []byte) (WakuPeer, error) {
 	w.peerMu.Lock()
 	defer w.peerMu.Unlock()
 	for p := range w.peers {
-		id := p.peer.ID()
-		if bytes.Equal(peerID, id[:]) {
+		if bytes.Equal(peerID, p.ID()) {
 			return p, nil
 		}
 	}
@@ -568,7 +567,7 @@ func (w *Waku) AllowP2PMessagesFromPeer(peerID []byte) error {
 	if err != nil {
 		return err
 	}
-	p.trusted = true
+	p.SetPeerTrusted(true)
 	return nil
 }
 
@@ -588,18 +587,18 @@ func (w *Waku) RequestHistoricMessagesWithTimeout(peerID []byte, envelope *Envel
 	if err != nil {
 		return err
 	}
-	p.trusted = true
+	p.SetPeerTrusted(true)
 
 	w.envelopeFeed.Send(EnvelopeEvent{
-		Peer:  p.peer.ID(),
+		Peer:  p.EnodeID(),
 		Topic: envelope.Topic,
 		Hash:  envelope.Hash(),
 		Event: EventMailServerRequestSent,
 	})
 
-	err = p2p.Send(p.ws, p2pRequestCode, envelope)
+	err = p.RequestHistoricMessages(envelope)
 	if timeout != 0 {
-		go w.expireRequestHistoricMessages(p.peer.ID(), envelope.Hash(), timeout)
+		go w.expireRequestHistoricMessages(p.EnodeID(), envelope.Hash(), timeout)
 	}
 	return err
 }
@@ -612,12 +611,12 @@ func (w *Waku) SendMessagesRequest(peerID []byte, request MessagesRequest) error
 	if err != nil {
 		return err
 	}
-	p.trusted = true
-	if err := p2p.Send(p.ws, p2pRequestCode, request); err != nil {
+	p.SetPeerTrusted(true)
+	if err := p.SendMessagesRequest(request); err != nil {
 		return err
 	}
 	w.envelopeFeed.Send(EnvelopeEvent{
-		Peer:  p.peer.ID(),
+		Peer:  p.EnodeID(),
 		Hash:  common.BytesToHash(request.ID),
 		Event: EventMailServerRequestSent,
 	})
@@ -640,15 +639,11 @@ func (w *Waku) expireRequestHistoricMessages(peer enode.ID, hash common.Hash, ti
 }
 
 func (w *Waku) SendHistoricMessageResponse(peerID []byte, payload []byte) error {
-	size, r, err := rlp.EncodeToReader(payload)
-	if err != nil {
-		return err
-	}
 	peer, err := w.getPeer(peerID)
 	if err != nil {
 		return err
 	}
-	return peer.ws.WriteMsg(p2p.Msg{Code: p2pRequestCompleteCode, Size: uint32(size), Payload: r})
+	return peer.SendHistoricMessageResponse(payload)
 }
 
 // SendP2PMessage sends a peer-to-peer message to a specific peer.
@@ -658,27 +653,27 @@ func (w *Waku) SendP2PMessages(peerID []byte, envelopes ...*Envelope) error {
 	if err != nil {
 		return err
 	}
-	return p2p.Send(p.ws, p2pMessageCode, envelopes)
+	return p.SendP2PMessages(envelopes)
 }
 
 // SendP2PDirect sends a peer-to-peer message to a specific peer.
 // It sends one or more envelopes in a single batch.
 func (w *Waku) SendP2PDirect(peerID []byte, envelopes ...*Envelope) error {
-	peer, err := w.getPeer(peerID)
+	p, err := w.getPeer(peerID)
 	if err != nil {
 		return err
 	}
-	return p2p.Send(peer.ws, p2pMessageCode, envelopes)
+	return p.SendP2PDirect(envelopes)
 }
 
 // SendRawP2PDirect sends a peer-to-peer message to a specific peer.
 // It sends one or more envelopes in a single batch.
 func (w *Waku) SendRawP2PDirect(peerID []byte, envelopes ...rlp.RawValue) error {
-	peer, err := w.getPeer(peerID)
+	p, err := w.getPeer(peerID)
 	if err != nil {
 		return err
 	}
-	return p2p.Send(peer.ws, p2pMessageCode, envelopes)
+	return p.SendRawP2PDirect(envelopes)
 }
 
 // NewKeyPair generates a new cryptographic identity for the client, and injects
@@ -1069,9 +1064,9 @@ func (w *Waku) sendConfirmation(rw p2p.MsgReadWriter, data []byte, envelopeError
 }
 
 // runMessageLoop reads and processes inbound messages directly to merge into client-global state.
-func (w *Waku) runMessageLoop(p *Peer, rw p2p.MsgReadWriter) error {
+func (w *Waku) runMessageLoop(p WakuPeer, rw p2p.MsgReadWriter) error {
 	logger := w.logger.Named("runMessageLoop")
-	peerID := p.peer.ID()
+	peerID := p.EnodeID()
 
 	for {
 		// fetch the next packet
@@ -1103,7 +1098,7 @@ func (w *Waku) runMessageLoop(p *Peer, rw p2p.MsgReadWriter) error {
 				return err
 			}
 		case statusUpdateCode:
-			if err := w.handleStatusUpdateCode(p, packet, logger); err != nil {
+			if err := p.HandleStatusUpdateCode(packet); err != nil {
 				logger.Warn("failed to decode status update message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
 				return err
 			}
@@ -1132,8 +1127,8 @@ func (w *Waku) runMessageLoop(p *Peer, rw p2p.MsgReadWriter) error {
 	}
 }
 
-func (w *Waku) handleMessagesCode(p *Peer, rw p2p.MsgReadWriter, packet p2p.Msg, logger *zap.Logger) error {
-	peerID := p.peer.ID()
+func (w *Waku) handleMessagesCode(p WakuPeer, rw p2p.MsgReadWriter, packet p2p.Msg, logger *zap.Logger) error {
+	peerID := p.EnodeID()
 
 	// decode the contained envelopes
 	data, err := ioutil.ReadAll(packet.Payload)
@@ -1160,14 +1155,14 @@ func (w *Waku) handleMessagesCode(p *Peer, rw p2p.MsgReadWriter, packet p2p.Msg,
 			}
 			envelopeErrors = append(envelopeErrors, ErrorToEnvelopeError(env.Hash(), err))
 		} else if cached {
-			p.mark(env)
+			p.Mark(env)
 		}
 
 		w.envelopeFeed.Send(EnvelopeEvent{
 			Event: EventEnvelopeReceived,
 			Topic: env.Topic,
 			Hash:  env.Hash(),
-			Peer:  p.peer.ID(),
+			Peer:  p.EnodeID(),
 		})
 		envelopesValidatedCounter.Inc()
 	}
@@ -1182,24 +1177,12 @@ func (w *Waku) handleMessagesCode(p *Peer, rw p2p.MsgReadWriter, packet p2p.Msg,
 	return nil
 }
 
-func (w *Waku) handleStatusUpdateCode(p *Peer, packet p2p.Msg, logger *zap.Logger) error {
-	var statusOptions statusOptions
-	err := packet.Decode(&statusOptions)
-	if err != nil {
-		logger.Error("failed to decode status-options", zap.Error(err))
-		envelopesRejectedCounter.WithLabelValues("invalid_settings_changed").Inc()
-		return err
-	}
-
-	return p.setOptions(statusOptions)
-}
-
-func (w *Waku) handleP2PMessageCode(p *Peer, packet p2p.Msg, logger *zap.Logger) error {
+func (w *Waku) handleP2PMessageCode(p WakuPeer, packet p2p.Msg, logger *zap.Logger) error {
 	// peer-to-peer message, sent directly to peer bypassing PoW checks, etc.
 	// this message is not supposed to be forwarded to other peers, and
 	// therefore might not satisfy the PoW, expiry and other requirements.
 	// these messages are only accepted from the trusted peer.
-	if !p.trusted {
+	if !p.Trusted() {
 		return nil
 	}
 
@@ -1218,8 +1201,8 @@ func (w *Waku) handleP2PMessageCode(p *Peer, packet p2p.Msg, logger *zap.Logger)
 	return nil
 }
 
-func (w *Waku) handleP2PRequestCode(p *Peer, packet p2p.Msg, logger *zap.Logger) error {
-	peerID := p.peer.ID()
+func (w *Waku) handleP2PRequestCode(p WakuPeer, packet p2p.Msg, logger *zap.Logger) error {
+	peerID := p.EnodeID()
 
 	// Must be processed if mail server is implemented. Otherwise ignore.
 	if w.mailServer == nil {
@@ -1259,8 +1242,8 @@ func (w *Waku) handleP2PRequestCode(p *Peer, packet p2p.Msg, logger *zap.Logger)
 	return errors.New("invalid p2p request message")
 }
 
-func (w *Waku) handleP2PRequestCompleteCode(p *Peer, packet p2p.Msg, logger *zap.Logger) error {
-	if !p.trusted {
+func (w *Waku) handleP2PRequestCompleteCode(p WakuPeer, packet p2p.Msg, logger *zap.Logger) error {
+	if !p.Trusted() {
 		return nil
 	}
 
@@ -1269,7 +1252,7 @@ func (w *Waku) handleP2PRequestCompleteCode(p *Peer, packet p2p.Msg, logger *zap
 		return fmt.Errorf("invalid p2p request complete message: %v", err)
 	}
 
-	event, err := CreateMailServerEvent(p.peer.ID(), payload)
+	event, err := CreateMailServerEvent(p.EnodeID(), payload)
 	if err != nil {
 		return fmt.Errorf("invalid p2p request complete payload: %v", err)
 	}
@@ -1278,7 +1261,7 @@ func (w *Waku) handleP2PRequestCompleteCode(p *Peer, packet p2p.Msg, logger *zap
 	return nil
 }
 
-func (w *Waku) handleMessageResponseCode(p *Peer, packet p2p.Msg, logger *zap.Logger) error {
+func (w *Waku) handleMessageResponseCode(p WakuPeer, packet p2p.Msg, logger *zap.Logger) error {
 	var resp MultiVersionResponse
 	if err := packet.Decode(&resp); err != nil {
 		envelopesRejectedCounter.WithLabelValues("failed_read").Inc()
@@ -1298,14 +1281,14 @@ func (w *Waku) handleMessageResponseCode(p *Peer, packet p2p.Msg, logger *zap.Lo
 	w.envelopeFeed.Send(EnvelopeEvent{
 		Batch: response.Hash,
 		Event: EventBatchAcknowledged,
-		Peer:  p.peer.ID(),
+		Peer:  p.EnodeID(),
 		Data:  response.Errors,
 	})
 
 	return nil
 }
 
-func (w *Waku) handleBatchAcknowledgeCode(p *Peer, packet p2p.Msg, logger *zap.Logger) error {
+func (w *Waku) handleBatchAcknowledgeCode(p WakuPeer, packet p2p.Msg, logger *zap.Logger) error {
 	var batchHash common.Hash
 	if err := packet.Decode(&batchHash); err != nil {
 		return fmt.Errorf("invalid batch ack message: %v", err)
@@ -1313,7 +1296,7 @@ func (w *Waku) handleBatchAcknowledgeCode(p *Peer, packet p2p.Msg, logger *zap.L
 	w.envelopeFeed.Send(EnvelopeEvent{
 		Batch: batchHash,
 		Event: EventBatchAcknowledged,
-		Peer:  p.peer.ID(),
+		Peer:  p.EnodeID(),
 	})
 	return nil
 }

@@ -45,7 +45,7 @@ func TestPeerRateLimiterDecorator(t *testing.T) {
 	}()
 
 	messages := make(chan p2p.Msg, 1)
-	runLoop := func(p *Peer, rw p2p.MsgReadWriter) error {
+	runLoop := func(p WakuPeer, rw p2p.MsgReadWriter) error {
 		msg, err := rw.ReadMsg()
 		if err != nil {
 			return err
@@ -151,8 +151,8 @@ func TestPeerLimiterHandlerWithWhitelisting(t *testing.T) {
 	require.Equal(t, 0, h.exceedPeerLimit)
 }
 
-func echoMessages(r *PeerRateLimiter, p *Peer, rw p2p.MsgReadWriter) error {
-	return r.decorate(p, rw, func(p *Peer, rw p2p.MsgReadWriter) error {
+func echoMessages(r *PeerRateLimiter, p WakuPeer, rw p2p.MsgReadWriter) error {
+	return r.decorate(p, rw, func(p WakuPeer, rw p2p.MsgReadWriter) error {
 		for {
 			msg, err := rw.ReadMsg()
 			if err != nil {

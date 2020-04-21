@@ -30,7 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
 
-type runLoop func(p *Peer, rw p2p.MsgReadWriter) error
+type runLoop func(p WakuPeer, rw p2p.MsgReadWriter) error
 
 type RateLimiterHandler interface {
 	ExceedPeerLimit() error
@@ -131,7 +131,7 @@ func NewPeerRateLimiter(cfg *PeerRateLimiterConfig, handlers ...RateLimiterHandl
 	}
 }
 
-func (r *PeerRateLimiter) decorate(p *Peer, rw p2p.MsgReadWriter, runLoop runLoop) error {
+func (r *PeerRateLimiter) decorate(p WakuPeer, rw p2p.MsgReadWriter, runLoop runLoop) error {
 	in, out := p2p.MsgPipe()
 	defer in.Close()
 	defer out.Close()
@@ -149,8 +149,10 @@ func (r *PeerRateLimiter) decorate(p *Peer, rw p2p.MsgReadWriter, runLoop runLoo
 			rateLimitsProcessed.Inc()
 
 			var ip string
-			if p != nil && p.peer != nil {
-				ip = p.peer.Node().IP().String()
+			if p != nil {
+				// this relies on <nil> being the string representation of nil
+				// as IP() might return a nil value
+				ip = p.IP().String()
 			}
 			if halted := r.throttleIP(ip); halted {
 				for _, h := range r.handlers {

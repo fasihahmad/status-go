@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"net"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
+	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -66,7 +68,7 @@ type Peer struct {
 }
 
 // newPeer creates a new waku peer object, but does not run the handshake itself.
-func newPeer(host *Waku, remote *p2p.Peer, rw p2p.MsgReadWriter, logger *zap.Logger) *Peer {
+func newPeer(host *Waku, remote *p2p.Peer, rw p2p.MsgReadWriter, logger *zap.Logger) WakuPeer {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -85,6 +87,35 @@ func newPeer(host *Waku, remote *p2p.Peer, rw p2p.MsgReadWriter, logger *zap.Log
 	}
 }
 
+type WakuPeer interface {
+	start()
+	stop()
+	handshake() error
+	notifyAboutPowRequirementChange(float64) error
+	notifyAboutBloomFilterChange([]byte) error
+	notifyAboutTopicInterestChange([]TopicType) error
+	RequestHistoricMessages(*Envelope) error
+	SendMessagesRequest(MessagesRequest) error
+	SendHistoricMessageResponse([]byte) error
+	SendP2PMessages([]*Envelope) error
+	SendP2PDirect([]*Envelope) error
+	SendRawP2PDirect([]rlp.RawValue) error
+
+	HandleStatusUpdateCode(packet p2p.Msg) error
+
+	Mark(*Envelope)
+	Marked(*Envelope) bool
+
+	PoWRequirement() float64
+	BloomFilter() []byte
+
+	Trusted() bool
+	SetPeerTrusted(bool)
+	ID() []byte
+	IP() net.IP
+	EnodeID() enode.ID
+}
+
 // start initiates the peer updater, periodically broadcasting the waku packets
 // into the network.
 func (p *Peer) start() {
@@ -96,6 +127,65 @@ func (p *Peer) start() {
 func (p *Peer) stop() {
 	close(p.quit)
 	p.logger.Debug("stopping peer", zap.Binary("peerID", p.ID()))
+}
+
+func (p *Peer) SetPeerTrusted(trusted bool) {
+	p.trusted = trusted
+}
+
+func (p *Peer) Trusted() bool {
+	return p.trusted
+}
+
+func (p *Peer) EnodeID() enode.ID {
+	return p.peer.ID()
+}
+
+func (p *Peer) IP() net.IP {
+	return p.peer.Node().IP()
+}
+
+func (p *Peer) RequestHistoricMessages(envelope *Envelope) error {
+	return p2p.Send(p.ws, p2pRequestCode, envelope)
+}
+
+func (p *Peer) SendMessagesRequest(request MessagesRequest) error {
+	return p2p.Send(p.ws, p2pRequestCode, request)
+
+}
+
+func (p *Peer) SendHistoricMessageResponse(payload []byte) error {
+	size, r, err := rlp.EncodeToReader(payload)
+	if err != nil {
+		return err
+	}
+
+	return p.ws.WriteMsg(p2p.Msg{Code: p2pRequestCompleteCode, Size: uint32(size), Payload: r})
+
+}
+
+func (p *Peer) SendP2PMessages(envelopes []*Envelope) error {
+	return p2p.Send(p.ws, p2pMessageCode, envelopes)
+}
+
+func (p *Peer) SendP2PDirect(envelopes []*Envelope) error {
+	return p2p.Send(p.ws, p2pMessageCode, envelopes)
+}
+
+func (p *Peer) SendRawP2PDirect(envelopes []rlp.RawValue) error {
+	return p2p.Send(p.ws, p2pMessageCode, envelopes)
+}
+
+func (p *Peer) HandleStatusUpdateCode(packet p2p.Msg) error {
+	var statusOptions statusOptions
+	err := packet.Decode(&statusOptions)
+	if err != nil {
+		p.logger.Error("failed to decode status-options", zap.Error(err))
+		envelopesRejectedCounter.WithLabelValues("invalid_settings_changed").Inc()
+		return err
+	}
+
+	return p.setOptions(statusOptions)
 }
 
 // handshake sends the protocol initiation status message to the remote peer and
@@ -218,12 +308,12 @@ func (p *Peer) update() {
 }
 
 // mark marks an envelope known to the peer so that it won't be sent back.
-func (p *Peer) mark(envelope *Envelope) {
+func (p *Peer) Mark(envelope *Envelope) {
 	p.known.Add(envelope.Hash())
 }
 
 // marked checks if an envelope is already known to the remote peer.
-func (p *Peer) marked(envelope *Envelope) bool {
+func (p *Peer) Marked(envelope *Envelope) bool {
 	return p.known.Contains(envelope.Hash())
 }
 
@@ -249,7 +339,7 @@ func (p *Peer) broadcast() error {
 	envelopes := p.host.Envelopes()
 	bundle := make([]*Envelope, 0, len(envelopes))
 	for _, envelope := range envelopes {
-		if !p.marked(envelope) && envelope.PoW() >= p.powRequirement && p.topicOrBloomMatch(envelope) {
+		if !p.Marked(envelope) && envelope.PoW() >= p.powRequirement && p.topicOrBloomMatch(envelope) {
 			bundle = append(bundle, envelope)
 		}
 	}
@@ -266,7 +356,7 @@ func (p *Peer) broadcast() error {
 
 	// mark envelopes only if they were successfully sent
 	for _, e := range bundle {
-		p.mark(e)
+		p.Mark(e)
 		event := EnvelopeEvent{
 			Event: EventEnvelopeSent,
 			Hash:  e.Hash(),
@@ -287,6 +377,10 @@ func (p *Peer) ID() []byte {
 	return id[:]
 }
 
+func (p *Peer) PoWRequirement() float64 {
+	return p.powRequirement
+}
+
 func (p *Peer) notifyAboutPowRequirementChange(pow float64) error {
 	i := math.Float64bits(pow)
 	return p2p.Send(p.ws, statusUpdateCode, statusOptions{PoWRequirement: &i})
@@ -304,6 +398,15 @@ func (p *Peer) bloomMatch(env *Envelope) bool {
 	p.bloomMu.Lock()
 	defer p.bloomMu.Unlock()
 	return p.fullNode || BloomFilterMatch(p.bloomFilter, env.Bloom())
+}
+
+func (p *Peer) BloomFilter() []byte {
+	p.bloomMu.Lock()
+	defer p.bloomMu.Unlock()
+
+	bloomFilterCopy := make([]byte, len(p.bloomFilter))
+	copy(bloomFilterCopy, p.bloomFilter)
+	return bloomFilterCopy
 }
 
 func (p *Peer) topicInterestMatch(env *Envelope) bool {

@@ -412,8 +412,8 @@ func TestPeerBasic(t *testing.T) {
 	}
 
 	p := newPeer(nil, nil, nil, nil)
-	p.mark(env)
-	if !p.marked(env) {
+	p.Mark(env)
+	if !p.Marked(env) {
 		t.Fatalf("failed mark with seed %d.", seed)
 	}
 }
@@ -434,9 +434,9 @@ func checkPowExchangeForNodeZeroOnce(t *testing.T, mustPass bool) bool {
 	cnt := 0
 	for i, node := range nodes {
 		for peer := range node.shh.peers {
-			if peer.peer.ID() == nodes[0].server.Self().ID() {
+			if peer.EnodeID() == nodes[0].server.Self().ID() {
 				cnt++
-				if peer.powRequirement != masterPow {
+				if peer.PoWRequirement() != masterPow {
 					if mustPass {
 						t.Fatalf("node %d: failed to set the new pow requirement for node zero.", i)
 					} else {
@@ -455,10 +455,10 @@ func checkPowExchangeForNodeZeroOnce(t *testing.T, mustPass bool) bool {
 func checkPowExchange(t *testing.T) {
 	for i, node := range nodes {
 		for peer := range node.shh.peers {
-			if peer.peer.ID() != nodes[0].server.Self().ID() {
-				if peer.powRequirement != masterPow {
+			if peer.EnodeID() != nodes[0].server.Self().ID() {
+				if peer.PoWRequirement() != masterPow {
 					t.Fatalf("node %d: failed to exchange pow requirement in round %d; expected %f, got %f",
-						i, round, masterPow, peer.powRequirement)
+						i, round, masterPow, peer.PoWRequirement())
 				}
 			}
 		}
@@ -468,13 +468,11 @@ func checkPowExchange(t *testing.T) {
 func checkBloomFilterExchangeOnce(t *testing.T, mustPass bool) bool {
 	for i, node := range nodes {
 		for peer := range node.shh.peers {
-			peer.bloomMu.Lock()
-			equals := bytes.Equal(peer.bloomFilter, masterBloomFilter)
-			peer.bloomMu.Unlock()
+			equals := bytes.Equal(peer.BloomFilter(), masterBloomFilter)
 			if !equals {
 				if mustPass {
 					t.Fatalf("node %d: failed to exchange bloom filter requirement in round %d. \n%x expected \n%x got",
-						i, round, masterBloomFilter, peer.bloomFilter)
+						i, round, masterBloomFilter, peer.BloomFilter())
 				} else {
 					return false
 				}
