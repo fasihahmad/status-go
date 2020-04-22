@@ -10,7 +10,6 @@ import (
 )
 
 const (
-	messagesCode         = 1 // regular message
 	TopicLength          = 4 // in bytes
 	EnvelopeHeaderLength = 20
 	BloomFilterSize      = 64                     // in bytes
@@ -124,4 +123,11 @@ func BloomFilterMatch(filter, sample []byte) bool {
 	}
 
 	return true
+}
+
+// EnvelopeError code and optional description of the error.
+type EnvelopeError struct {
+	Hash        common.Hash
+	Code        uint
+	Description string
 }

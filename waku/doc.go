@@ -79,14 +79,7 @@ type MessagesResponse struct {
 	// Hash is a hash of all envelopes sent in the single batch.
 	Hash common.Hash
 	// Per envelope error.
-	Errors []EnvelopeError
-}
-
-// EnvelopeError code and optional description of the error.
-type EnvelopeError struct {
-	Hash        common.Hash
-	Code        uint
-	Description string
+	Errors []types.EnvelopeError
 }
 
 // MultiVersionResponse allows to decode response into chosen version.
@@ -107,7 +100,7 @@ type Version1MessageResponse struct {
 }
 
 // NewMessagesResponse returns instance of the version messages response.
-func NewMessagesResponse(batch common.Hash, errors []EnvelopeError) Version1MessageResponse {
+func NewMessagesResponse(batch common.Hash, errors []types.EnvelopeError) Version1MessageResponse {
 	return Version1MessageResponse{
 		Version: 1,
 		Response: MessagesResponse{
@@ -118,13 +111,13 @@ func NewMessagesResponse(batch common.Hash, errors []EnvelopeError) Version1Mess
 }
 
 // ErrorToEnvelopeError converts common golang error into EnvelopeError with a code.
-func ErrorToEnvelopeError(hash common.Hash, err error) EnvelopeError {
+func ErrorToEnvelopeError(hash common.Hash, err error) types.EnvelopeError {
 	code := EnvelopeOtherError
 	switch err.(type) {
 	case TimeSyncError:
 		code = EnvelopeTimeNotSynced
 	}
-	return EnvelopeError{
+	return types.EnvelopeError{
 		Hash:        hash,
 		Code:        code,
 		Description: err.Error(),

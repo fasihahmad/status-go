@@ -1053,15 +1053,49 @@ func (w *Waku) HandlePeer(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 	wakuPeer.Start()
 	defer wakuPeer.Stop()
 
+	protocol := types.NewProtocol(w, nil, wakuPeer, rw, w.logger)
+
 	if w.rateLimiter != nil {
-		runLoop := func(out p2p.MsgReadWriter) error { return w.runMessageLoop(wakuPeer, out) }
+		runLoop := func(out p2p.MsgReadWriter) error { return w.runMessageLoop(protocol) }
 		return w.rateLimiter.Decorate(wakuPeer, rw, runLoop)
 	}
-	return w.runMessageLoop(wakuPeer, rw)
+
+	return w.runMessageLoop(protocol)
+}
+
+func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol *types.Protocol) ([]types.EnvelopeError, error) {
+	envelopeErrors := make([]types.EnvelopeError, 0)
+	trouble := false
+	for _, env := range envelopes {
+		cached, err := w.add(env, w.LightClientMode())
+		if err != nil {
+			_, isTimeSyncError := err.(TimeSyncError)
+			if !isTimeSyncError {
+				trouble = true
+				w.logger.Info("invalid envelope received", zap.Binary("peer", protocol.Them().ID()), zap.Error(err))
+			}
+			envelopeErrors = append(envelopeErrors, ErrorToEnvelopeError(env.Hash(), err))
+		} else if cached {
+			protocol.Them().Mark(env)
+		}
+
+		w.envelopeFeed.Send(types.EnvelopeEvent{
+			Event: types.EventEnvelopeReceived,
+			Topic: env.Topic,
+			Hash:  env.Hash(),
+			Peer:  protocol.Them().EnodeID(),
+		})
+		types.EnvelopesValidatedCounter.Inc()
+	}
+
+	if trouble {
+		return envelopeErrors, errors.New("received invalid envelope")
+	}
+	return envelopeErrors, nil
 }
 
 // sendConfirmation sends messageResponseCode and batchAcknowledgedCode messages.
-func (w *Waku) sendConfirmation(rw p2p.MsgReadWriter, data []byte, envelopeErrors []EnvelopeError) (err error) {
+func (w *Waku) sendConfirmation(rw p2p.MsgReadWriter, data []byte, envelopeErrors []types.EnvelopeError) (err error) {
 	batchHash := crypto.Keccak256Hash(data)
 	err = p2p.Send(rw, messageResponseCode, NewMessagesResponse(batchHash, envelopeErrors))
 	if err != nil {
@@ -1072,7 +1106,9 @@ func (w *Waku) sendConfirmation(rw p2p.MsgReadWriter, data []byte, envelopeError
 }
 
 // runMessageLoop reads and processes inbound messages directly to merge into client-global state.
-func (w *Waku) runMessageLoop(p types.WakuPeer, rw p2p.MsgReadWriter) error {
+func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
+	p := protocol.Them()
+	rw := protocol.RW()
 	logger := w.logger.Named("runMessageLoop")
 	peerID := p.EnodeID()
 
@@ -1135,6 +1171,7 @@ func (w *Waku) runMessageLoop(p types.WakuPeer, rw p2p.MsgReadWriter) error {
 	}
 }
 
+// OnNewEnvelopes
 func (w *Waku) handleMessagesCode(p types.WakuPeer, rw p2p.MsgReadWriter, packet p2p.Msg, logger *zap.Logger) error {
 	peerID := p.EnodeID()
 
@@ -1151,7 +1188,7 @@ func (w *Waku) handleMessagesCode(p types.WakuPeer, rw p2p.MsgReadWriter, packet
 		return fmt.Errorf("invalid payload: %v", err)
 	}
 
-	envelopeErrors := make([]EnvelopeError, 0)
+	envelopeErrors := make([]types.EnvelopeError, 0)
 	trouble := false
 	for _, env := range envelopes {
 		cached, err := w.add(env, w.LightClientMode())

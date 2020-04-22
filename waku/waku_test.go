@@ -1138,7 +1138,9 @@ func TestHandleP2PMessageCode(t *testing.T) {
 	peer := peerv0.NewPeer(nil, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), nil, nil)
 	peer.SetPeerTrusted(true)
 
-	err = w.runMessageLoop(peer, rwStub)
+	protocol := types.NewProtocol(w, nil, peer, rwStub, w.logger)
+
+	err = w.runMessageLoop(protocol)
 	if err != nil && err != errRWStub {
 		t.Fatalf("failed run message loop: %s", err)
 	}
@@ -1150,7 +1152,9 @@ func TestHandleP2PMessageCode(t *testing.T) {
 	rwStub = &rwP2PMessagesStub{}
 	rwStub.payload = []interface{}{[]*types.Envelope{env, env, env}}
 
-	err = w.runMessageLoop(peer, rwStub)
+	protocol = types.NewProtocol(w, nil, peer, rwStub, w.logger)
+
+	err = w.runMessageLoop(protocol)
 	if err != nil && err != errRWStub {
 		t.Fatalf("failed run message loop: %s", err)
 	}
@@ -1360,13 +1364,13 @@ func TestMessagesResponseWithError(t *testing.T) {
 	require.NoError(t, err)
 	hash := crypto.Keccak256Hash(data)
 	require.NoError(t, p2p.SendItems(rw1, messagesCode, &failed, &normal))
-	require.NoError(t, p2p.ExpectMsg(rw1, messageResponseCode, NewMessagesResponse(hash, []EnvelopeError{
+	require.NoError(t, p2p.ExpectMsg(rw1, messageResponseCode, NewMessagesResponse(hash, []types.EnvelopeError{
 		{Hash: failed.Hash(), Code: EnvelopeTimeNotSynced, Description: "envelope from future"},
 	})))
 	require.NoError(t, p2p.ExpectMsg(rw1, batchAcknowledgedCode, hash))
 }
 
-func testConfirmationEvents(t *testing.T, envelope types.Envelope, envelopeErrors []EnvelopeError) {
+func testConfirmationEvents(t *testing.T, envelope types.Envelope, envelopeErrors []types.EnvelopeError) {
 	conf := &Config{
 		MinimumAcceptedPoW:  0,
 		MaxMessageSize:      10 << 20,
@@ -1445,7 +1449,7 @@ func TestConfirmationEventsReceived(t *testing.T) {
 		Data:   make([]byte, 1<<10),
 		Nonce:  1,
 	}
-	testConfirmationEvents(t, e, []EnvelopeError{})
+	testConfirmationEvents(t, e, []types.EnvelopeError{})
 }
 
 func TestConfirmationEventsExtendedWithErrors(t *testing.T) {
@@ -1456,7 +1460,7 @@ func TestConfirmationEventsExtendedWithErrors(t *testing.T) {
 		Data:   make([]byte, 1<<10),
 		Nonce:  1,
 	}
-	testConfirmationEvents(t, e, []EnvelopeError{
+	testConfirmationEvents(t, e, []types.EnvelopeError{
 		{
 			Hash:        e.Hash(),
 			Code:        EnvelopeTimeNotSynced,
@@ -1710,7 +1714,10 @@ func TestMailserverCompletionEvent(t *testing.T) {
 		require.NoError(t, p2p.Send(rw2, p2pRequestCompleteCode, [100]byte{})) // 2 hashes + cursor size
 		rw2.Close()
 	}()
-	require.EqualError(t, w.runMessageLoop(peer, rw1), "p2p: read or write on closed message pipe")
+
+	protocol := types.NewProtocol(w, nil, peer, rw1, w.logger)
+
+	require.EqualError(t, w.runMessageLoop(protocol), "p2p: read or write on closed message pipe")
 
 	after := time.After(2 * time.Second)
 	count := 0

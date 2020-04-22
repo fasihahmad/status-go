@@ -42,7 +42,7 @@ func NewWakuEnvelopeEventWrapper(envelopeEvent *wakutypes.EnvelopeEvent) *types.
 
 	wrappedData := envelopeEvent.Data
 	switch data := envelopeEvent.Data.(type) {
-	case []waku.EnvelopeError:
+	case []wakutypes.EnvelopeError:
 		wrappedData := make([]types.EnvelopeError, len(data))
 		for index, envError := range data {
 			wrappedData[index] = *NewWakuEnvelopeErrorWrapper(&envError)
