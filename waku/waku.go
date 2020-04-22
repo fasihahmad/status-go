@@ -1127,7 +1127,7 @@ func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
 
 		switch packet.Code {
 		case messagesCode:
-			if err := w.handleMessagesCode(p, rw, packet, logger); err != nil {
+			if err := protocol.HandleMessagesCode(packet); err != nil {
 				logger.Warn("failed to handle messagesCode message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
 				return err
 			}
@@ -1169,57 +1169,6 @@ func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
 
 		_ = packet.Discard()
 	}
-}
-
-// OnNewEnvelopes
-func (w *Waku) handleMessagesCode(p types.WakuPeer, rw p2p.MsgReadWriter, packet p2p.Msg, logger *zap.Logger) error {
-	peerID := p.EnodeID()
-
-	// decode the contained envelopes
-	data, err := ioutil.ReadAll(packet.Payload)
-	if err != nil {
-		types.EnvelopesRejectedCounter.WithLabelValues("failed_read").Inc()
-		return fmt.Errorf("failed to read packet payload: %v", err)
-	}
-
-	var envelopes []*types.Envelope
-	if err := rlp.DecodeBytes(data, &envelopes); err != nil {
-		types.EnvelopesRejectedCounter.WithLabelValues("invalid_data").Inc()
-		return fmt.Errorf("invalid payload: %v", err)
-	}
-
-	envelopeErrors := make([]types.EnvelopeError, 0)
-	trouble := false
-	for _, env := range envelopes {
-		cached, err := w.add(env, w.LightClientMode())
-		if err != nil {
-			_, isTimeSyncError := err.(TimeSyncError)
-			if !isTimeSyncError {
-				trouble = true
-				logger.Info("invalid envelope received", zap.Binary("peer", peerID[:]), zap.Error(err))
-			}
-			envelopeErrors = append(envelopeErrors, ErrorToEnvelopeError(env.Hash(), err))
-		} else if cached {
-			p.Mark(env)
-		}
-
-		w.envelopeFeed.Send(types.EnvelopeEvent{
-			Event: types.EventEnvelopeReceived,
-			Topic: env.Topic,
-			Hash:  env.Hash(),
-			Peer:  p.EnodeID(),
-		})
-		types.EnvelopesValidatedCounter.Inc()
-	}
-
-	if w.ConfirmationsEnabled() {
-		go w.sendConfirmation(rw, data, envelopeErrors) // nolint: errcheck
-	}
-
-	if trouble {
-		return errors.New("received invalid envelope")
-	}
-	return nil
 }
 
 func (w *Waku) handleP2PMessageCode(p types.WakuPeer, packet p2p.Msg, logger *zap.Logger) error {

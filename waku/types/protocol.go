@@ -82,7 +82,6 @@ func NewProtocol(host WakuHost, us WakuPeer, them WakuPeer, rw p2p.MsgReadWriter
 	}
 }
 
-// OnNewEnvelopes
 func (p *Protocol) HandleMessagesCode(packet p2p.Msg) error {
 	// decode the contained envelopes
 	data, err := ioutil.ReadAll(packet.Payload)

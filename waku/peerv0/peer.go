@@ -323,7 +323,6 @@ func (p *Peer) broadcast() error {
 		if p.confirmationsEnabled {
 			event.Batch = batchHash
 		}
-		//p.host.envelopeFeed.Send(event)
 		p.host.SendEnvelopeEvent(event)
 	}
 	p.logger.Debug("broadcasted bundles successfully", zap.Binary("peer", p.ID()), zap.Int("count", len(bundle)))
