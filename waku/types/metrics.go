@@ -48,7 +48,6 @@ var (
 		Help:    "Size of processed Waku envelopes in bytes.",
 		Buckets: prom.ExponentialBuckets(256, 4, 10),
 	})
-	// rate limiter metrics
 	RateLimitsProcessed = prom.NewCounter(prom.CounterOpts{
 		Name: "waku_rate_limits_processed_total",
 		Help: "Number of packets Waku rate limiter processed.",
@@ -57,7 +56,6 @@ var (
 		Name: "waku_rate_limits_exceeded_total",
 		Help: "Number of times the Waku rate limits were exceeded",
 	}, []string{"type"})
-	// bridging
 	BridgeSent = prom.NewCounter(prom.CounterOpts{
 		Name: "waku_bridge_sent_total",
 		Help: "Number of envelopes bridged from Waku",

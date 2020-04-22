@@ -106,7 +106,7 @@ func singleMessageTest(t *testing.T, symmetric bool) {
 	if !bytes.Equal(text, decrypted.Payload) {
 		t.Fatalf("failed with seed %d: compare payload.", seed)
 	}
-	if !isMessageSigned(decrypted.Raw[0]) {
+	if !IsMessageSigned(decrypted.Raw[0]) {
 		t.Fatalf("failed with seed %d: unsigned.", seed)
 	}
 	if len(decrypted.Signature) != signatureLength {
@@ -192,7 +192,7 @@ func TestMessageSeal(t *testing.T) {
 	params.PoW = target
 	env.Seal(params) // nolint: errcheck
 
-	env.calculatePoW(0)
+	env.CalculatePoW(0)
 	pow := env.PoW()
 	if pow < target {
 		t.Fatalf("failed Wrap with seed %d: pow < target (%f vs. %f).", seed, pow, target)
@@ -201,7 +201,7 @@ func TestMessageSeal(t *testing.T) {
 	params.WorkTime = 1
 	params.PoW = 1000000000.0
 	env.Seal(params) // nolint: errcheck
-	env.calculatePoW(0)
+	env.CalculatePoW(0)
 	pow = env.PoW()
 	if pow < 2*target {
 		t.Fatalf("failed Wrap with seed %d: pow too small %f.", seed, pow)
@@ -260,7 +260,7 @@ func singleEnvelopeOpenTest(t *testing.T, symmetric bool) {
 	if !bytes.Equal(text, decrypted.Payload) {
 		t.Fatalf("failed with seed %d: compare payload.", seed)
 	}
-	if !isMessageSigned(decrypted.Raw[0]) {
+	if !IsMessageSigned(decrypted.Raw[0]) {
 		t.Fatalf("failed with seed %d: unsigned.", seed)
 	}
 	if len(decrypted.Signature) != signatureLength {

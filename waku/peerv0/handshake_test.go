@@ -7,9 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/status-im/status-go/waku/types"
 )
 
 func TestEncodeDecodeRLP(t *testing.T) {
+	initRLPKeyFields()
 	pow := math.Float64bits(6.02)
 	lightNodeEnabled := true
 	confirmationsEnabled := true
@@ -19,7 +21,7 @@ func TestEncodeDecodeRLP(t *testing.T) {
 		BloomFilterExport:          types.TopicToBloom(types.TopicType{0xaa, 0xbb, 0xcc, 0xdd}),
 		LightNodeEnabledExport:     &lightNodeEnabled,
 		ConfirmationsEnabledExport: &confirmationsEnabled,
-		RateLimitsExport: &RateLimits{
+		RateLimitsExport: &types.RateLimits{
 			IPLimits:     10,
 			PeerIDLimits: 5,
 			TopicLimits:  1,
@@ -46,7 +48,7 @@ func TestBackwardCompatibility(t *testing.T) {
 	err = rlp.DecodeBytes(data, &optsDecoded)
 	require.NoError(t, err)
 	pow := math.Float64bits(2.05)
-	require.EqualValues(t, StatusOptions{PoWRequirement: &pow}, optsDecoded)
+	require.EqualValues(t, StatusOptions{PoWRequirementExport: &pow}, optsDecoded)
 }
 
 func TestForwardCompatibility(t *testing.T) {
@@ -61,7 +63,7 @@ func TestForwardCompatibility(t *testing.T) {
 	var optsDecoded StatusOptions
 	err = rlp.DecodeBytes(data, &optsDecoded)
 	require.NoError(t, err)
-	require.EqualValues(t, StatusOptions{PoWRequirement: &pow}, optsDecoded)
+	require.EqualValues(t, StatusOptions{PoWRequirementExport: &pow}, optsDecoded)
 }
 
 func TestInitRLPKeyFields(t *testing.T) {

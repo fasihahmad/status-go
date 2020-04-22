@@ -94,8 +94,7 @@ func TestInstallFilters(t *testing.T) {
 	InitSingleTest()
 
 	const SizeTestFilters = 256
-	w := New(&Config{}, nil)
-	filters := NewFilters(w)
+	filters := NewFilters()
 	tst := generateTestCases(t, SizeTestFilters)
 
 	var err error
@@ -106,7 +105,7 @@ func TestInstallFilters(t *testing.T) {
 			t.Fatalf("seed %d: failed to install filter: %s", seed, err)
 		}
 		tst[i].id = j
-		if len(j) != keyIDSize*2 {
+		if len(j) != KeyIDSize*2 {
 			t.Fatalf("seed %d: wrong filter id size [%d]", seed, len(j))
 		}
 	}
@@ -132,8 +131,7 @@ func TestInstallFilters(t *testing.T) {
 func TestInstallSymKeyGeneratesHash(t *testing.T) {
 	InitSingleTest()
 
-	w := New(&Config{}, nil)
-	filters := NewFilters(w)
+	filters := NewFilters()
 	filter, _ := generateFilter(t, true)
 
 	// save the current SymKeyHash for comparison
@@ -159,8 +157,7 @@ func TestInstallSymKeyGeneratesHash(t *testing.T) {
 func TestInstallIdenticalFilters(t *testing.T) {
 	InitSingleTest()
 
-	w := New(&Config{}, nil)
-	filters := NewFilters(w)
+	filters := NewFilters()
 	filter1, _ := generateFilter(t, true)
 
 	// Copy the first filter since some of its fields
@@ -229,8 +226,7 @@ func TestInstallIdenticalFilters(t *testing.T) {
 func TestInstallFilterWithSymAndAsymKeys(t *testing.T) {
 	InitSingleTest()
 
-	w := New(&Config{}, nil)
-	filters := NewFilters(w)
+	filters := NewFilters()
 	filter1, _ := generateFilter(t, true)
 
 	asymKey, err := crypto.GenerateKey()
@@ -644,8 +640,7 @@ func TestWatchers(t *testing.T) {
 	var x, firstID string
 	var err error
 
-	w := New(&Config{}, nil)
-	filters := NewFilters(w)
+	filters := NewFilters()
 	tst := generateTestCases(t, NumFilters)
 	for i = 0; i < NumFilters; i++ {
 		tst[i].f.Src = nil

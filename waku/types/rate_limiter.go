@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/tsenart/tb"
@@ -30,7 +31,13 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 )
 
-type runLoop func(p WakuPeer, rw p2p.MsgReadWriter) error
+type runLoop func(rw p2p.MsgReadWriter) error
+
+type RateLimiterPeer interface {
+	ID() []byte
+	IP() net.IP
+	EnodeID() enode.ID
+}
 
 type RateLimiterHandler interface {
 	ExceedPeerLimit() error
@@ -131,7 +138,7 @@ func NewPeerRateLimiter(cfg *PeerRateLimiterConfig, handlers ...RateLimiterHandl
 	}
 }
 
-func (r *PeerRateLimiter) Decorate(p WakuPeer, rw p2p.MsgReadWriter, runLoop runLoop) error {
+func (r *PeerRateLimiter) Decorate(p RateLimiterPeer, rw p2p.MsgReadWriter, runLoop runLoop) error {
 	in, out := p2p.MsgPipe()
 	defer in.Close()
 	defer out.Close()
@@ -199,7 +206,7 @@ func (r *PeerRateLimiter) Decorate(p WakuPeer, rw p2p.MsgReadWriter, runLoop run
 	}()
 
 	go func() {
-		errC <- runLoop(p, out)
+		errC <- runLoop(out)
 	}()
 
 	return <-errC

@@ -1054,7 +1054,8 @@ func (w *Waku) HandlePeer(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 	defer wakuPeer.Stop()
 
 	if w.rateLimiter != nil {
-		return w.rateLimiter.Decorate(wakuPeer, rw, w.runMessageLoop)
+		runLoop := func(out p2p.MsgReadWriter) error { return w.runMessageLoop(wakuPeer, out) }
+		return w.rateLimiter.Decorate(wakuPeer, rw, runLoop)
 	}
 	return w.runMessageLoop(wakuPeer, rw)
 }

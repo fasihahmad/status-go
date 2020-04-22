@@ -31,6 +31,7 @@ import (
 	"github.com/status-im/status-go/sqlite"
 	"github.com/status-im/status-go/t/helpers"
 	"github.com/status-im/status-go/waku"
+	wakutypes "github.com/status-im/status-go/waku/types"
 )
 
 func TestRequestMessagesErrors(t *testing.T) {
@@ -374,7 +375,7 @@ func (s *RequestMessagesSyncSuite) testCompletedFromAttempt(target int) {
 				s.Require().NoError(msg.Discard())
 				continue
 			}
-			var e waku.Envelope
+			var e wakutypes.Envelope
 			s.Require().NoError(msg.Decode(&e))
 			s.Require().NoError(p2p.Send(s.remoteRW, p2pRequestCompleteCode, waku.CreateMailServerRequestCompletedPayload(e.Hash(), common.Hash{}, cursor[:])))
 		}

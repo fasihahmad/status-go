@@ -22,7 +22,6 @@ import (
 	"github.com/status-im/status-go/waku/types"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -43,17 +42,13 @@ const (
 	p2pMessageCode         = 127 // peer-to-peer message (to be consumed by the peer, but not forwarded any further)
 	NumberOfMessageCodes   = 128
 
-	signatureLength  = crypto.SignatureLength // in bytes
-	aesKeyLength     = 32                     // in bytes
-	aesNonceLength   = 12                     // in bytes; for more info please see cipher.gcmStandardNonceSize & aesgcm.NonceSize()
+	aesKeyLength     = 32 // in bytes
 	MaxTopicInterest = 10000
-	flagsLength      = 1
 
 	MaxMessageSize        = uint32(10 * 1024 * 1024) // maximum accepted size of a message.
 	DefaultMaxMessageSize = uint32(1024 * 1024)
 	DefaultMinimumPoW     = 0.2
 
-	padSizeLimit      = 256 // just an arbitrary number, could be changed without breaking the protocol
 	messageQueueLimit = 1024
 
 	DefaultTTL           = 50 // seconds
