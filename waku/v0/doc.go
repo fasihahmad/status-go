@@ -1,4 +1,4 @@
-package peerv0
+package v0
 
 // Waku protocol parameters
 const (

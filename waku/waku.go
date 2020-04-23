@@ -44,7 +44,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/status-im/status-go/waku/peerv0"
+	"github.com/status-im/status-go/waku/v0"
 	"github.com/status-im/status-go/waku/types"
 )
 
@@ -111,7 +111,7 @@ type Waku struct {
 
 // init initialises the waku package
 func init() {
-	peerv0.Init()
+	v0.Init()
 }
 
 // New creates a Waku client ready to communicate through the Ethereum P2P network.
@@ -1032,7 +1032,7 @@ func (w *Waku) Stop() error {
 // connection is negotiated.
 func (w *Waku) HandlePeer(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 	// Create the new peer and start tracking it
-	wakuPeer := peerv0.NewPeer(w, peer, rw, w.logger.Named("waku/peer"))
+	wakuPeer := v0.NewPeer(w, peer, rw, w.logger.Named("waku/peer"))
 
 	w.peerMu.Lock()
 	w.peers[wakuPeer] = struct{}{}
@@ -1418,7 +1418,7 @@ func (w *Waku) expire() {
 }
 
 func (w *Waku) ToStatusOptions() types.StatusOption {
-	opts := peerv0.StatusOptions{}
+	opts := v0.StatusOptions{}
 
 	rateLimits := w.RateLimits()
 	opts.RateLimitsExport = &rateLimits

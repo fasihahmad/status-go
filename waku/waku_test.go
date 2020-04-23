@@ -33,7 +33,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/pbkdf2"
 
-	"github.com/status-im/status-go/waku/peerv0"
+	"github.com/status-im/status-go/waku/v0"
 	"github.com/status-im/status-go/waku/types"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -1067,7 +1067,7 @@ func TestSendP2PDirect(t *testing.T) {
 	defer w.Stop()                                  // nolint: errcheck
 
 	rwStub := &rwP2PMessagesStub{}
-	peerW := peerv0.NewPeer(w, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), rwStub, nil)
+	peerW := v0.NewPeer(w, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), rwStub, nil)
 	w.peers[peerW] = struct{}{}
 
 	params, err := generateMessageParams()
@@ -1135,7 +1135,7 @@ func TestHandleP2PMessageCode(t *testing.T) {
 	rwStub := &rwP2PMessagesStub{}
 	rwStub.payload = []interface{}{[]*types.Envelope{env}}
 
-	peer := peerv0.NewPeer(nil, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), nil, nil)
+	peer := v0.NewPeer(nil, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), nil, nil)
 	peer.SetPeerTrusted(true)
 
 	protocol := types.NewProtocol(w, nil, peer, rwStub, w.logger)
@@ -1273,7 +1273,7 @@ func TestConfirmationReceived(t *testing.T) {
 			rw1,
 			statusCode,
 			ProtocolVersion,
-			peerv0.StatusOptions{
+			v0.StatusOptions{
 				PoWRequirementExport:       &pow,
 				BloomFilterExport:          w.BloomFilter(),
 				ConfirmationsEnabledExport: &confirmationsEnabled,
@@ -1336,7 +1336,7 @@ func TestMessagesResponseWithError(t *testing.T) {
 			rw1,
 			statusCode,
 			ProtocolVersion,
-			peerv0.StatusOptions{
+			v0.StatusOptions{
 				PoWRequirementExport:       &pow,
 				BloomFilterExport:          w.BloomFilter(),
 				ConfirmationsEnabledExport: &confirmationsEnabled,
@@ -1408,7 +1408,7 @@ func testConfirmationEvents(t *testing.T, envelope types.Envelope, envelopeError
 		rw1,
 		statusCode,
 		ProtocolVersion,
-		peerv0.StatusOptions{
+		v0.StatusOptions{
 			PoWRequirementExport:       &pow,
 			BloomFilterExport:          w.BloomFilter(),
 			ConfirmationsEnabledExport: &confirmationsEnabled,
@@ -1510,7 +1510,7 @@ func TestEventsWithoutConfirmation(t *testing.T) {
 			rw1,
 			statusCode,
 			ProtocolVersion,
-			peerv0.StatusOptions{
+			v0.StatusOptions{
 				PoWRequirementExport:   &pow,
 				BloomFilterExport:      w.BloomFilter(),
 				LightNodeEnabledExport: &lightNodeEnabled,
@@ -1601,7 +1601,7 @@ func TestRequestSentEventWithExpiry(t *testing.T) {
 	p := p2p.NewPeer(enode.ID{1}, "1", []p2p.Cap{{"shh", 6}})
 	rw := discardPipe()
 	defer rw.Close()
-	w.peers[peerv0.NewPeer(w, p, rw, nil)] = struct{}{}
+	w.peers[v0.NewPeer(w, p, rw, nil)] = struct{}{}
 	events := make(chan types.EnvelopeEvent, 1)
 	sub := w.SubscribeEnvelopeEvents(events)
 	defer sub.Unsubscribe()
@@ -1645,7 +1645,7 @@ func TestSendMessagesRequest(t *testing.T) {
 		p := p2p.NewPeer(enode.ID{0x01}, "peer01", nil)
 		rw1, rw2 := p2p.MsgPipe()
 		w := New(nil, nil)
-		w.peers[peerv0.NewPeer(w, p, rw1, nil)] = struct{}{}
+		w.peers[v0.NewPeer(w, p, rw1, nil)] = struct{}{}
 
 		go func() {
 			err := w.SendMessagesRequest(p.ID().Bytes(), validMessagesRequest)
@@ -1700,7 +1700,7 @@ func TestMailserverCompletionEvent(t *testing.T) {
 	defer w.Stop() // nolint: errcheck
 
 	rw1, rw2 := p2p.MsgPipe()
-	peer := peerv0.NewPeer(w, p2p.NewPeer(enode.ID{1}, "1", nil), rw1, nil)
+	peer := v0.NewPeer(w, p2p.NewPeer(enode.ID{1}, "1", nil), rw1, nil)
 	peer.SetPeerTrusted(true)
 	w.peers[peer] = struct{}{}
 

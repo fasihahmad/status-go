@@ -37,7 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/status-im/status-go/waku/peerv0"
+	"github.com/status-im/status-go/waku/v0"
 	"github.com/status-im/status-go/waku/types"
 )
 
@@ -414,7 +414,7 @@ func TestPeerBasic(t *testing.T) {
 		t.Fatalf("failed Wrap with seed %d.", seed)
 	}
 
-	p := peerv0.NewPeer(nil, nil, nil, nil)
+	p := v0.NewPeer(nil, nil, nil, nil)
 	p.Mark(env)
 	if !p.Marked(env) {
 		t.Fatalf("failed mark with seed %d.", seed)
@@ -515,12 +515,12 @@ func waitForServersToStart(t *testing.T) {
 func TestPeerHandshakeWithTwoFullNode(t *testing.T) {
 	w1 := Waku{}
 	var pow uint64 = 123
-	p1 := peerv0.NewPeer(
+	p1 := v0.NewPeer(
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
 			ProtocolVersion,
-			peerv0.StatusOptions{PoWRequirementExport: &pow},
+			v0.StatusOptions{PoWRequirementExport: &pow},
 		}},
 		nil,
 	)
@@ -534,12 +534,12 @@ func TestPeerHandshakeWithTwoFullNode(t *testing.T) {
 func TestHandshakeWithOldVersionWithoutLightModeFlag(t *testing.T) {
 	w1 := Waku{}
 	var pow uint64 = 123
-	p1 := peerv0.NewPeer(
+	p1 := v0.NewPeer(
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
 			ProtocolVersion,
-			peerv0.StatusOptions{PoWRequirementExport: &pow},
+			v0.StatusOptions{PoWRequirementExport: &pow},
 		}},
 		nil,
 	)
@@ -556,12 +556,12 @@ func TestTwoLightPeerHandshakeRestrictionOff(t *testing.T) {
 	w1.SetLightClientMode(true)
 	var pow uint64 = 123
 	var lightNodeEnabled = true
-	p1 := peerv0.NewPeer(
+	p1 := v0.NewPeer(
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
 			ProtocolVersion,
-			peerv0.StatusOptions{PoWRequirementExport: &pow, LightNodeEnabledExport: &lightNodeEnabled},
+			v0.StatusOptions{PoWRequirementExport: &pow, LightNodeEnabledExport: &lightNodeEnabled},
 		}},
 		nil,
 	)
@@ -576,7 +576,7 @@ func TestTwoLightPeerHandshakeError(t *testing.T) {
 	w1 := Waku{}
 	w1.settings.RestrictLightClientsConn = true
 	w1.SetLightClientMode(true)
-	p1 := peerv0.NewPeer(
+	p1 := v0.NewPeer(
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{ProtocolVersion, uint64(123), make([]byte, types.BloomFilterSize), true}},
