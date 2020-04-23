@@ -1,7 +1,10 @@
 package types
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 
 	"go.uber.org/zap"
@@ -108,12 +111,67 @@ func (p *Protocol) HandleMessageResponseCode(packet p2p.Msg) error {
 	return p.host.OnMessagesResponse(response, p)
 }
 
+func (p *Protocol) HandleP2PRequestCode(packet p2p.Msg) error {
+	// Must be processed if mail server is implemented. Otherwise ignore.
+	if !p.host.Mailserver() {
+		return nil
+	}
+
+	// Read all data as we will try to decode it possibly twice.
+	data, err := ioutil.ReadAll(packet.Payload)
+	if err != nil {
+		return fmt.Errorf("invalid p2p request messages: %v", err)
+	}
+	r := bytes.NewReader(data)
+	packet.Payload = r
+
+	// As we failed to decode the request, let's set the offset
+	// to the beginning and try decode it again.
+	if _, err := r.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("invalid p2p request message: %v", err)
+	}
+
+	var request MessagesRequest
+	errReq := packet.Decode(&request)
+	if errReq == nil {
+		return p.host.OnMessagesRequest(request, p)
+	}
+	p.logger.Info("failed to decode p2p request message", zap.Binary("peer", p.them.ID()), zap.Error(errReq))
+
+	return errors.New("invalid p2p request message")
+}
+
 func (p *Protocol) HandleBatchAcknowledgeCode(packet p2p.Msg) error {
 	var batchHash common.Hash
 	if err := packet.Decode(&batchHash); err != nil {
 		return fmt.Errorf("invalid batch ack message: %v", err)
 	}
 	return p.host.OnBatchAcknowledged(batchHash, p)
+}
+
+func (p *Protocol) HandleStatusUpdateCode(packet p2p.Msg) error {
+	return p.them.HandleStatusUpdateCode(packet)
+}
+
+func (p *Protocol) HandleP2PMessageCode(packet p2p.Msg) error {
+	// peer-to-peer message, sent directly to peer bypassing PoW checks, etc.
+	// this message is not supposed to be forwarded to other peers, and
+	// therefore might not satisfy the PoW, expiry and other requirements.
+	// these messages are only accepted from the trusted peer.
+	if !p.them.Trusted() {
+		return nil
+	}
+
+	var (
+		envelopes []*Envelope
+		err       error
+	)
+
+	if err = packet.Decode(&envelopes); err != nil {
+		return fmt.Errorf("invalid direct message payload: %v", err)
+	}
+
+	return p.host.OnNewP2PEnvelopes(envelopes, p)
 }
 
 // sendConfirmation sends messageResponseCode and batchAcknowledgedCode messages.

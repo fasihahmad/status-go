@@ -24,8 +24,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"runtime"
 	"sync"
 	"time"
@@ -1131,17 +1129,17 @@ func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
 				return err
 			}
 		case statusUpdateCode:
-			if err := p.HandleStatusUpdateCode(packet); err != nil {
+			if err := protocol.HandleStatusUpdateCode(packet); err != nil {
 				logger.Warn("failed to decode status update message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
 				return err
 			}
 		case p2pMessageCode:
-			if err := w.handleP2PMessageCode(p, packet, logger); err != nil {
+			if err := protocol.HandleP2PMessageCode(packet); err != nil {
 				logger.Warn("failed to decode direct message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
 				return err
 			}
 		case p2pRequestCode:
-			if err := w.handleP2PRequestCode(p, packet, logger); err != nil {
+			if err := protocol.HandleP2PRequestCode(packet); err != nil {
 				logger.Warn("failed to decode p2p request message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
 				return err
 			}
@@ -1160,69 +1158,19 @@ func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
 	}
 }
 
-func (w *Waku) handleP2PMessageCode(p types.WakuPeer, packet p2p.Msg, logger *zap.Logger) error {
-	// peer-to-peer message, sent directly to peer bypassing PoW checks, etc.
-	// this message is not supposed to be forwarded to other peers, and
-	// therefore might not satisfy the PoW, expiry and other requirements.
-	// these messages are only accepted from the trusted peer.
-	if !p.Trusted() {
-		return nil
-	}
-
-	var (
-		envelopes []*types.Envelope
-		err       error
-	)
-
-	if err = packet.Decode(&envelopes); err != nil {
-		return fmt.Errorf("invalid direct message payload: %v", err)
-	}
-
+func (w *Waku) OnNewP2PEnvelopes(envelopes []*types.Envelope, p *types.Protocol) error {
 	for _, envelope := range envelopes {
 		w.postP2P(envelope)
 	}
 	return nil
 }
+func (w *Waku) Mailserver() bool {
+	return w.mailServer != nil
+}
 
-func (w *Waku) handleP2PRequestCode(p types.WakuPeer, packet p2p.Msg, logger *zap.Logger) error {
-	peerID := p.EnodeID()
-
-	// Must be processed if mail server is implemented. Otherwise ignore.
-	if w.mailServer == nil {
-		return nil
-	}
-
-	// Read all data as we will try to decode it possibly twice.
-	data, err := ioutil.ReadAll(packet.Payload)
-	if err != nil {
-		return fmt.Errorf("invalid p2p request messages: %v", err)
-	}
-	r := bytes.NewReader(data)
-	packet.Payload = r
-
-	var requestDeprecated types.Envelope
-	errDepReq := packet.Decode(&requestDeprecated)
-	if errDepReq == nil {
-		w.mailServer.DeliverMail(p.ID(), &requestDeprecated)
-		return nil
-	}
-	logger.Info("failed to decode p2p request message (deprecated)", zap.Binary("peer", peerID[:]), zap.Error(errDepReq))
-
-	// As we failed to decode the request, let's set the offset
-	// to the beginning and try decode it again.
-	if _, err := r.Seek(0, io.SeekStart); err != nil {
-		return fmt.Errorf("invalid p2p request message: %v", err)
-	}
-
-	var request types.MessagesRequest
-	errReq := packet.Decode(&request)
-	if errReq == nil {
-		w.mailServer.Deliver(p.ID(), request)
-		return nil
-	}
-	logger.Info("failed to decode p2p request message", zap.Binary("peer", peerID[:]), zap.Error(errDepReq))
-
-	return errors.New("invalid p2p request message")
+func (w *Waku) OnMessagesRequest(request types.MessagesRequest, p *types.Protocol) error {
+	w.mailServer.Deliver(p.Them().ID(), request)
+	return nil
 }
 
 func (w *Waku) handleP2PRequestCompleteCode(p types.WakuPeer, packet p2p.Msg, logger *zap.Logger) error {
