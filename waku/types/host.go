@@ -14,4 +14,5 @@ type WakuHost interface {
 	SendEnvelopeEvent(EnvelopeEvent) int
 	OnNewEnvelopes([]*Envelope, *Protocol) ([]EnvelopeError, error)
 	OnMessagesResponse(MessagesResponse, *Protocol) error
+	OnBatchAcknowledged(common.Hash, *Protocol) error
 }

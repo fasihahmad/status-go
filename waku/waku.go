@@ -1094,17 +1094,6 @@ func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol *types.Proto
 	return envelopeErrors, nil
 }
 
-// sendConfirmation sends messageResponseCode and batchAcknowledgedCode messages.
-func (w *Waku) sendConfirmation(rw p2p.MsgReadWriter, data []byte, envelopeErrors []types.EnvelopeError) (err error) {
-	batchHash := crypto.Keccak256Hash(data)
-	err = p2p.Send(rw, messageResponseCode, types.NewMessagesResponse(batchHash, envelopeErrors))
-	if err != nil {
-		return
-	}
-	err = p2p.Send(rw, batchAcknowledgedCode, batchHash) // DEPRECATED
-	return
-}
-
 // runMessageLoop reads and processes inbound messages directly to merge into client-global state.
 func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
 	p := protocol.Them()
@@ -1137,7 +1126,7 @@ func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
 				return err
 			}
 		case batchAcknowledgedCode:
-			if err := w.handleBatchAcknowledgeCode(p, packet, logger); err != nil {
+			if err := protocol.HandleBatchAcknowledgeCode(packet); err != nil {
 				logger.Warn("failed to handle batchAcknowledgedCode message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
 				return err
 			}
@@ -1266,15 +1255,11 @@ func (w *Waku) OnMessagesResponse(response types.MessagesResponse, p *types.Prot
 	return nil
 }
 
-func (w *Waku) handleBatchAcknowledgeCode(p types.WakuPeer, packet p2p.Msg, logger *zap.Logger) error {
-	var batchHash common.Hash
-	if err := packet.Decode(&batchHash); err != nil {
-		return fmt.Errorf("invalid batch ack message: %v", err)
-	}
+func (w *Waku) OnBatchAcknowledged(batchHash common.Hash, p *types.Protocol) error {
 	w.envelopeFeed.Send(types.EnvelopeEvent{
 		Batch: batchHash,
 		Event: types.EventBatchAcknowledged,
-		Peer:  p.EnodeID(),
+		Peer:  p.Them().EnodeID(),
 	})
 	return nil
 }

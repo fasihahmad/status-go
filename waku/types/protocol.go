@@ -108,6 +108,14 @@ func (p *Protocol) HandleMessageResponseCode(packet p2p.Msg) error {
 	return p.host.OnMessagesResponse(response, p)
 }
 
+func (p *Protocol) HandleBatchAcknowledgeCode(packet p2p.Msg) error {
+	var batchHash common.Hash
+	if err := packet.Decode(&batchHash); err != nil {
+		return fmt.Errorf("invalid batch ack message: %v", err)
+	}
+	return p.host.OnBatchAcknowledged(batchHash, p)
+}
+
 // sendConfirmation sends messageResponseCode and batchAcknowledgedCode messages.
 func (p *Protocol) sendConfirmation(data []byte, envelopeErrors []EnvelopeError) (err error) {
 	batchHash := crypto.Keccak256Hash(data)
