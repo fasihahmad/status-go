@@ -63,7 +63,7 @@ func TestBasic(t *testing.T) {
 	if uint64(shh.Version) != ProtocolVersion {
 		t.Fatalf("failed Protocol Version: %v.", shh.Version)
 	}
-	if shh.Length != NumberOfMessageCodes {
+	if shh.Length != types.NumberOfMessageCodes {
 		t.Fatalf("failed Protocol Length: %v.", shh.Length)
 	}
 	if shh.Run == nil {

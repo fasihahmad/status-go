@@ -21,10 +21,15 @@ const (
 	ProtocolName       = "waku"    // Nickname of the protocol
 
 	// Waku protocol message codes, according to https://github.com/vacp2p/specs/blob/master/waku.md
-	messagesCode          = 1  // regular message
-	batchAcknowledgedCode = 11 // confirmation that batch of envelopes was received
-	messageResponseCode   = 12 // includes confirmation for delivery and information about errors
-
+	statusCode             = 0   // used in the handshake
+	messagesCode           = 1   // regular message
+	statusUpdateCode       = 22  // update of settings
+	batchAcknowledgedCode  = 11  // confirmation that batch of envelopes was received
+	messageResponseCode    = 12  // includes confirmation for delivery and information about errors
+	p2pRequestCompleteCode = 125 // peer-to-peer message, used by Dapp protocol
+	p2pRequestCode         = 126 // peer-to-peer message, used by Dapp protocol
+	p2pMessageCode         = 127 // peer-to-peer message (to be consumed by the peer, but not forwarded any further)
+	NumberOfMessageCodes   = 128
 )
 
 type MessagesResponse struct {
@@ -42,7 +47,49 @@ type Protocol struct {
 	logger *zap.Logger
 }
 
-func (p *Protocol) HandlePacket(packet *p2p.Msg) error {
+func (p *Protocol) HandlePacket(packet p2p.Msg) error {
+	switch packet.Code {
+	case messagesCode:
+		if err := p.HandleMessagesCode(packet); err != nil {
+			p.logger.Warn("failed to handle messagesCode message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			return err
+		}
+	case messageResponseCode:
+		if err := p.HandleMessageResponseCode(packet); err != nil {
+			p.logger.Warn("failed to handle messageResponseCode message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			return err
+		}
+	case batchAcknowledgedCode:
+		if err := p.HandleBatchAcknowledgeCode(packet); err != nil {
+			p.logger.Warn("failed to handle batchAcknowledgedCode message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			return err
+		}
+	case statusUpdateCode:
+		if err := p.HandleStatusUpdateCode(packet); err != nil {
+			p.logger.Warn("failed to decode status update message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			return err
+		}
+	case p2pMessageCode:
+		if err := p.HandleP2PMessageCode(packet); err != nil {
+			p.logger.Warn("failed to decode direct message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			return err
+		}
+	case p2pRequestCode:
+		if err := p.HandleP2PRequestCode(packet); err != nil {
+			p.logger.Warn("failed to decode p2p request message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			return err
+		}
+	case p2pRequestCompleteCode:
+		if err := p.HandleP2PRequestCompleteCode(packet); err != nil {
+			p.logger.Warn("failed to decode p2p request complete message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			return err
+		}
+	default:
+		// New message types might be implemented in the future versions of Waku.
+		// For forward compatibility, just ignore.
+		p.logger.Debug("ignored packet with message code", zap.Uint64("code", packet.Code))
+	}
+
 	return nil
 }
 

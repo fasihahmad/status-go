@@ -160,7 +160,7 @@ func New(cfg *Config, logger *zap.Logger) *Waku {
 	waku.protocol = p2p.Protocol{
 		Name:    ProtocolName,
 		Version: uint(ProtocolVersion),
-		Length:  NumberOfMessageCodes,
+		Length:  types.NumberOfMessageCodes,
 		Run:     waku.HandlePeer,
 		NodeInfo: func() interface{} {
 			return map[string]interface{}{
@@ -1112,46 +1112,8 @@ func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
 			return errors.New("oversize message received")
 		}
 
-		switch packet.Code {
-		case messagesCode:
-			if err := protocol.HandleMessagesCode(packet); err != nil {
-				logger.Warn("failed to handle messagesCode message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
-				return err
-			}
-		case messageResponseCode:
-			if err := protocol.HandleMessageResponseCode(packet); err != nil {
-				logger.Warn("failed to handle messageResponseCode message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
-				return err
-			}
-		case batchAcknowledgedCode:
-			if err := protocol.HandleBatchAcknowledgeCode(packet); err != nil {
-				logger.Warn("failed to handle batchAcknowledgedCode message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
-				return err
-			}
-		case statusUpdateCode:
-			if err := protocol.HandleStatusUpdateCode(packet); err != nil {
-				logger.Warn("failed to decode status update message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
-				return err
-			}
-		case p2pMessageCode:
-			if err := protocol.HandleP2PMessageCode(packet); err != nil {
-				logger.Warn("failed to decode direct message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
-				return err
-			}
-		case p2pRequestCode:
-			if err := protocol.HandleP2PRequestCode(packet); err != nil {
-				logger.Warn("failed to decode p2p request message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
-				return err
-			}
-		case p2pRequestCompleteCode:
-			if err := protocol.HandleP2PRequestCompleteCode(packet); err != nil {
-				logger.Warn("failed to decode p2p request complete message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
-				return err
-			}
-		default:
-			// New message types might be implemented in the future versions of Waku.
-			// For forward compatibility, just ignore.
-			logger.Debug("ignored packet with message code", zap.Uint64("code", packet.Code))
+		if err := protocol.HandlePacket(packet); err != nil {
+			logger.Warn("failed to handle packet message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
 		}
 
 		_ = packet.Discard()
