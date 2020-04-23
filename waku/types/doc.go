@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 )
 
 const (
@@ -28,6 +29,34 @@ const (
 
 	MaxLimitInMessagesRequest = 1000
 )
+
+// MultiVersionResponse allows to decode response into chosen version.
+type MultiVersionResponse struct {
+	Version  uint
+	Response rlp.RawValue
+}
+
+// DecodeResponse1 decodes response into first version of the messages response.
+func (m MultiVersionResponse) DecodeResponse1() (resp MessagesResponse, err error) {
+	return resp, rlp.DecodeBytes(m.Response, &resp)
+}
+
+// Version1MessageResponse first version of the message response.
+type Version1MessageResponse struct {
+	Version  uint
+	Response MessagesResponse
+}
+
+// NewMessagesResponse returns instance of the version messages response.
+func NewMessagesResponse(batch common.Hash, errors []EnvelopeError) Version1MessageResponse {
+	return Version1MessageResponse{
+		Version: 1,
+		Response: MessagesResponse{
+			Hash:   batch,
+			Errors: errors,
+		},
+	}
+}
 
 // MessagesRequest contains details of a request of historic messages.
 type MessagesRequest struct {

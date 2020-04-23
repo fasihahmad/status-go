@@ -1097,7 +1097,7 @@ func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol *types.Proto
 // sendConfirmation sends messageResponseCode and batchAcknowledgedCode messages.
 func (w *Waku) sendConfirmation(rw p2p.MsgReadWriter, data []byte, envelopeErrors []types.EnvelopeError) (err error) {
 	batchHash := crypto.Keccak256Hash(data)
-	err = p2p.Send(rw, messageResponseCode, NewMessagesResponse(batchHash, envelopeErrors))
+	err = p2p.Send(rw, messageResponseCode, types.NewMessagesResponse(batchHash, envelopeErrors))
 	if err != nil {
 		return
 	}
@@ -1132,7 +1132,7 @@ func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
 				return err
 			}
 		case messageResponseCode:
-			if err := w.handleMessageResponseCode(p, packet, logger); err != nil {
+			if err := protocol.HandleMessageResponseCode(packet); err != nil {
 				logger.Warn("failed to handle messageResponseCode message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
 				return err
 			}
@@ -1255,27 +1255,11 @@ func (w *Waku) handleP2PRequestCompleteCode(p types.WakuPeer, packet p2p.Msg, lo
 	return nil
 }
 
-func (w *Waku) handleMessageResponseCode(p types.WakuPeer, packet p2p.Msg, logger *zap.Logger) error {
-	var resp MultiVersionResponse
-	if err := packet.Decode(&resp); err != nil {
-		types.EnvelopesRejectedCounter.WithLabelValues("failed_read").Inc()
-		return fmt.Errorf("invalid response message: %v", err)
-	}
-	if resp.Version != 1 {
-		logger.Info("received unsupported version of MultiVersionResponse for messageResponseCode packet", zap.Uint("version", resp.Version))
-		return nil
-	}
-
-	response, err := resp.DecodeResponse1()
-	if err != nil {
-		types.EnvelopesRejectedCounter.WithLabelValues("invalid_data").Inc()
-		return fmt.Errorf("failed to decode response message: %v", err)
-	}
-
+func (w *Waku) OnMessagesResponse(response types.MessagesResponse, p *types.Protocol) error {
 	w.envelopeFeed.Send(types.EnvelopeEvent{
 		Batch: response.Hash,
 		Event: types.EventBatchAcknowledged,
-		Peer:  p.EnodeID(),
+		Peer:  p.Them().EnodeID(),
 		Data:  response.Errors,
 	})
 

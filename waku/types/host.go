@@ -13,4 +13,5 @@ type WakuHost interface {
 	Envelopes() []*Envelope
 	SendEnvelopeEvent(EnvelopeEvent) int
 	OnNewEnvelopes([]*Envelope, *Protocol) ([]EnvelopeError, error)
+	OnMessagesResponse(MessagesResponse, *Protocol) error
 }

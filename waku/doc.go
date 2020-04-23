@@ -19,10 +19,8 @@
 package waku
 
 import (
-	"github.com/status-im/status-go/waku/types"
-
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/status-im/status-go/waku/types"
 )
 
 // Waku protocol parameters
@@ -80,34 +78,6 @@ type MessagesResponse struct {
 	Hash common.Hash
 	// Per envelope error.
 	Errors []types.EnvelopeError
-}
-
-// MultiVersionResponse allows to decode response into chosen version.
-type MultiVersionResponse struct {
-	Version  uint
-	Response rlp.RawValue
-}
-
-// DecodeResponse1 decodes response into first version of the messages response.
-func (m MultiVersionResponse) DecodeResponse1() (resp MessagesResponse, err error) {
-	return resp, rlp.DecodeBytes(m.Response, &resp)
-}
-
-// Version1MessageResponse first version of the message response.
-type Version1MessageResponse struct {
-	Version  uint
-	Response MessagesResponse
-}
-
-// NewMessagesResponse returns instance of the version messages response.
-func NewMessagesResponse(batch common.Hash, errors []types.EnvelopeError) Version1MessageResponse {
-	return Version1MessageResponse{
-		Version: 1,
-		Response: MessagesResponse{
-			Hash:   batch,
-			Errors: errors,
-		},
-	}
 }
 
 // ErrorToEnvelopeError converts common golang error into EnvelopeError with a code.

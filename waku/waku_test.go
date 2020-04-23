@@ -1364,7 +1364,7 @@ func TestMessagesResponseWithError(t *testing.T) {
 	require.NoError(t, err)
 	hash := crypto.Keccak256Hash(data)
 	require.NoError(t, p2p.SendItems(rw1, messagesCode, &failed, &normal))
-	require.NoError(t, p2p.ExpectMsg(rw1, messageResponseCode, NewMessagesResponse(hash, []types.EnvelopeError{
+	require.NoError(t, p2p.ExpectMsg(rw1, messageResponseCode, types.NewMessagesResponse(hash, []types.EnvelopeError{
 		{Hash: failed.Hash(), Code: EnvelopeTimeNotSynced, Description: "envelope from future"},
 	})))
 	require.NoError(t, p2p.ExpectMsg(rw1, batchAcknowledgedCode, hash))
@@ -1428,7 +1428,7 @@ func testConfirmationEvents(t *testing.T, envelope types.Envelope, envelopeError
 	case <-time.After(5 * time.Second):
 		require.FailNow(t, "timed out waiting for an envelope.sent event")
 	}
-	require.NoError(t, p2p.Send(rw1, messageResponseCode, NewMessagesResponse(hash, envelopeErrors)))
+	require.NoError(t, p2p.Send(rw1, messageResponseCode, types.NewMessagesResponse(hash, envelopeErrors)))
 	require.NoError(t, p2p.Send(rw1, batchAcknowledgedCode, hash))
 	select {
 	case ev := <-events:

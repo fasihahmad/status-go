@@ -31,23 +31,6 @@ type MessagesResponse struct {
 	Errors []EnvelopeError
 }
 
-// Version1MessageResponse first version of the message response.
-type Version1MessageResponse struct {
-	Version  uint
-	Response MessagesResponse
-}
-
-// NewMessagesResponse returns instance of the version messages response.
-func NewMessagesResponse(batch common.Hash, errors []EnvelopeError) Version1MessageResponse {
-	return Version1MessageResponse{
-		Version: 1,
-		Response: MessagesResponse{
-			Hash:   batch,
-			Errors: errors,
-		},
-	}
-}
-
 type Protocol struct {
 	them   WakuPeer
 	us     WakuPeer
@@ -103,6 +86,26 @@ func (p *Protocol) HandleMessagesCode(packet p2p.Msg) error {
 	}
 
 	return err
+}
+
+func (p *Protocol) HandleMessageResponseCode(packet p2p.Msg) error {
+	var resp MultiVersionResponse
+	if err := packet.Decode(&resp); err != nil {
+		EnvelopesRejectedCounter.WithLabelValues("failed_read").Inc()
+		return fmt.Errorf("invalid response message: %v", err)
+	}
+	if resp.Version != 1 {
+		p.logger.Info("received unsupported version of MultiVersionResponse for messageResponseCode packet", zap.Uint("version", resp.Version))
+		return nil
+	}
+
+	response, err := resp.DecodeResponse1()
+	if err != nil {
+		EnvelopesRejectedCounter.WithLabelValues("invalid_data").Inc()
+		return fmt.Errorf("failed to decode response message: %v", err)
+	}
+
+	return p.host.OnMessagesResponse(response, p)
 }
 
 // sendConfirmation sends messageResponseCode and batchAcknowledgedCode messages.
