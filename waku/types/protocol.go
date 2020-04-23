@@ -174,6 +174,18 @@ func (p *Protocol) HandleP2PMessageCode(packet p2p.Msg) error {
 	return p.host.OnNewP2PEnvelopes(envelopes, p)
 }
 
+func (p *Protocol) HandleP2PRequestCompleteCode(packet p2p.Msg) error {
+	if !p.them.Trusted() {
+		return nil
+	}
+
+	var payload []byte
+	if err := packet.Decode(&payload); err != nil {
+		return fmt.Errorf("invalid p2p request complete message: %v", err)
+	}
+	return p.host.OnP2PRequestCompleted(payload, p)
+}
+
 // sendConfirmation sends messageResponseCode and batchAcknowledgedCode messages.
 func (p *Protocol) sendConfirmation(data []byte, envelopeErrors []EnvelopeError) (err error) {
 	batchHash := crypto.Keccak256Hash(data)

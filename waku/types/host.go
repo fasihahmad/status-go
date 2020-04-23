@@ -18,4 +18,5 @@ type WakuHost interface {
 	OnMessagesResponse(MessagesResponse, *Protocol) error
 	OnMessagesRequest(MessagesRequest, *Protocol) error
 	OnBatchAcknowledged(common.Hash, *Protocol) error
+	OnP2PRequestCompleted([]byte, *Protocol) error
 }

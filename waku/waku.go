@@ -1144,7 +1144,7 @@ func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
 				return err
 			}
 		case p2pRequestCompleteCode:
-			if err := w.handleP2PRequestCompleteCode(p, packet, logger); err != nil {
+			if err := protocol.HandleP2PRequestCompleteCode(packet); err != nil {
 				logger.Warn("failed to decode p2p request complete message, peer will be disconnected", zap.Binary("peer", peerID[:]), zap.Error(err))
 				return err
 			}
@@ -1173,17 +1173,8 @@ func (w *Waku) OnMessagesRequest(request types.MessagesRequest, p *types.Protoco
 	return nil
 }
 
-func (w *Waku) handleP2PRequestCompleteCode(p types.WakuPeer, packet p2p.Msg, logger *zap.Logger) error {
-	if !p.Trusted() {
-		return nil
-	}
-
-	var payload []byte
-	if err := packet.Decode(&payload); err != nil {
-		return fmt.Errorf("invalid p2p request complete message: %v", err)
-	}
-
-	event, err := CreateMailServerEvent(p.EnodeID(), payload)
+func (w *Waku) OnP2PRequestCompleted(payload []byte, p *types.Protocol) error {
+	event, err := CreateMailServerEvent(p.Them().EnodeID(), payload)
 	if err != nil {
 		return fmt.Errorf("invalid p2p request complete payload: %v", err)
 	}
