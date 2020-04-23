@@ -16,7 +16,7 @@
 // This software uses the go-ethereum library, which is licensed
 // under the GNU Lesser General Public Library, version 3 or any later.
 
-package types
+package v0
 
 import (
 	"testing"
@@ -25,10 +25,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
+
+	"github.com/status-im/status-go/waku/types"
 )
 
 func TestEncodeDecodeVersionedResponse(t *testing.T) {
-	response := NewMessagesResponse(common.Hash{1}, []EnvelopeError{{Code: 1}})
+	response := NewMessagesResponse(common.Hash{1}, []types.EnvelopeError{{Code: 1}})
 	bytes, err := rlp.EncodeToBytes(response)
 	require.NoError(t, err)
 

@@ -32,7 +32,6 @@ const (
 	// Waku protocol message codes, according to https://github.com/vacp2p/specs/blob/master/waku.md
 	statusCode             = 0   // used in the handshake
 	messagesCode           = 1   // regular message
-	statusUpdateCode       = 22  // update of settings
 	batchAcknowledgedCode  = 11  // confirmation that batch of envelopes was received
 	messageResponseCode    = 12  // includes confirmation for delivery and information about errors
 	p2pRequestCompleteCode = 125 // peer-to-peer message, used by Dapp protocol

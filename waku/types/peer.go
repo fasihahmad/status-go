@@ -19,11 +19,8 @@
 package types
 
 import (
-	"bytes"
 	"net"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -64,20 +61,4 @@ func MakeFullNodeBloom() []byte {
 		bloom[i] = 0xFF
 	}
 	return bloom
-}
-
-func SendBundle(rw p2p.MsgWriter, bundle []*Envelope) (rst common.Hash, err error) {
-	data, err := rlp.EncodeToBytes(bundle)
-	if err != nil {
-		return
-	}
-	err = rw.WriteMsg(p2p.Msg{
-		Code:    messagesCode,
-		Size:    uint32(len(data)),
-		Payload: bytes.NewBuffer(data),
-	})
-	if err != nil {
-		return
-	}
-	return crypto.Keccak256Hash(data), nil
 }

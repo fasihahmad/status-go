@@ -44,8 +44,8 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 
-	"github.com/status-im/status-go/waku/v0"
 	"github.com/status-im/status-go/waku/types"
+	"github.com/status-im/status-go/waku/v0"
 )
 
 // TimeSyncError error for clock skew errors.
@@ -160,7 +160,7 @@ func New(cfg *Config, logger *zap.Logger) *Waku {
 	waku.protocol = p2p.Protocol{
 		Name:    ProtocolName,
 		Version: uint(ProtocolVersion),
-		Length:  types.NumberOfMessageCodes,
+		Length:  v0.NumberOfMessageCodes,
 		Run:     waku.HandlePeer,
 		NodeInfo: func() interface{} {
 			return map[string]interface{}{
@@ -1051,7 +1051,7 @@ func (w *Waku) HandlePeer(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 	wakuPeer.Start()
 	defer wakuPeer.Stop()
 
-	protocol := types.NewProtocol(w, nil, wakuPeer, rw, w.logger)
+	protocol := v0.NewProtocol(w, nil, wakuPeer, rw, w.logger)
 
 	if w.rateLimiter != nil {
 		runLoop := func(out p2p.MsgReadWriter) error { return w.runMessageLoop(protocol) }
@@ -1061,7 +1061,7 @@ func (w *Waku) HandlePeer(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 	return w.runMessageLoop(protocol)
 }
 
-func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol *types.Protocol) ([]types.EnvelopeError, error) {
+func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol types.Protocol) ([]types.EnvelopeError, error) {
 	envelopeErrors := make([]types.EnvelopeError, 0)
 	trouble := false
 	for _, env := range envelopes {
@@ -1093,7 +1093,7 @@ func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol *types.Proto
 }
 
 // runMessageLoop reads and processes inbound messages directly to merge into client-global state.
-func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
+func (w *Waku) runMessageLoop(protocol types.Protocol) error {
 	p := protocol.Them()
 	rw := protocol.RW()
 	logger := w.logger.Named("runMessageLoop")
@@ -1120,7 +1120,7 @@ func (w *Waku) runMessageLoop(protocol *types.Protocol) error {
 	}
 }
 
-func (w *Waku) OnNewP2PEnvelopes(envelopes []*types.Envelope, p *types.Protocol) error {
+func (w *Waku) OnNewP2PEnvelopes(envelopes []*types.Envelope, p types.Protocol) error {
 	for _, envelope := range envelopes {
 		w.postP2P(envelope)
 	}
@@ -1130,12 +1130,12 @@ func (w *Waku) Mailserver() bool {
 	return w.mailServer != nil
 }
 
-func (w *Waku) OnMessagesRequest(request types.MessagesRequest, p *types.Protocol) error {
+func (w *Waku) OnMessagesRequest(request types.MessagesRequest, p types.Protocol) error {
 	w.mailServer.Deliver(p.Them().ID(), request)
 	return nil
 }
 
-func (w *Waku) OnP2PRequestCompleted(payload []byte, p *types.Protocol) error {
+func (w *Waku) OnP2PRequestCompleted(payload []byte, p types.Protocol) error {
 	event, err := CreateMailServerEvent(p.Them().EnodeID(), payload)
 	if err != nil {
 		return fmt.Errorf("invalid p2p request complete payload: %v", err)
@@ -1145,7 +1145,7 @@ func (w *Waku) OnP2PRequestCompleted(payload []byte, p *types.Protocol) error {
 	return nil
 }
 
-func (w *Waku) OnMessagesResponse(response types.MessagesResponse, p *types.Protocol) error {
+func (w *Waku) OnMessagesResponse(response types.MessagesResponse, p types.Protocol) error {
 	w.envelopeFeed.Send(types.EnvelopeEvent{
 		Batch: response.Hash,
 		Event: types.EventBatchAcknowledged,
@@ -1156,7 +1156,7 @@ func (w *Waku) OnMessagesResponse(response types.MessagesResponse, p *types.Prot
 	return nil
 }
 
-func (w *Waku) OnBatchAcknowledged(batchHash common.Hash, p *types.Protocol) error {
+func (w *Waku) OnBatchAcknowledged(batchHash common.Hash, p types.Protocol) error {
 	w.envelopeFeed.Send(types.EnvelopeEvent{
 		Batch: batchHash,
 		Event: types.EventBatchAcknowledged,

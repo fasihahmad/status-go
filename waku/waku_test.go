@@ -33,8 +33,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/pbkdf2"
 
-	"github.com/status-im/status-go/waku/v0"
 	"github.com/status-im/status-go/waku/types"
+	"github.com/status-im/status-go/waku/v0"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -63,7 +63,7 @@ func TestBasic(t *testing.T) {
 	if uint64(shh.Version) != ProtocolVersion {
 		t.Fatalf("failed Protocol Version: %v.", shh.Version)
 	}
-	if shh.Length != types.NumberOfMessageCodes {
+	if shh.Length != v0.NumberOfMessageCodes {
 		t.Fatalf("failed Protocol Length: %v.", shh.Length)
 	}
 	if shh.Run == nil {
@@ -1138,7 +1138,7 @@ func TestHandleP2PMessageCode(t *testing.T) {
 	peer := v0.NewPeer(nil, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), nil, nil)
 	peer.SetPeerTrusted(true)
 
-	protocol := types.NewProtocol(w, nil, peer, rwStub, w.logger)
+	protocol := v0.NewProtocol(w, nil, peer, rwStub, w.logger)
 
 	err = w.runMessageLoop(protocol)
 	if err != nil && err != errRWStub {
@@ -1152,7 +1152,7 @@ func TestHandleP2PMessageCode(t *testing.T) {
 	rwStub = &rwP2PMessagesStub{}
 	rwStub.payload = []interface{}{[]*types.Envelope{env, env, env}}
 
-	protocol = types.NewProtocol(w, nil, peer, rwStub, w.logger)
+	protocol = v0.NewProtocol(w, nil, peer, rwStub, w.logger)
 
 	err = w.runMessageLoop(protocol)
 	if err != nil && err != errRWStub {
@@ -1364,7 +1364,7 @@ func TestMessagesResponseWithError(t *testing.T) {
 	require.NoError(t, err)
 	hash := crypto.Keccak256Hash(data)
 	require.NoError(t, p2p.SendItems(rw1, messagesCode, &failed, &normal))
-	require.NoError(t, p2p.ExpectMsg(rw1, messageResponseCode, types.NewMessagesResponse(hash, []types.EnvelopeError{
+	require.NoError(t, p2p.ExpectMsg(rw1, messageResponseCode, v0.NewMessagesResponse(hash, []types.EnvelopeError{
 		{Hash: failed.Hash(), Code: EnvelopeTimeNotSynced, Description: "envelope from future"},
 	})))
 	require.NoError(t, p2p.ExpectMsg(rw1, batchAcknowledgedCode, hash))
@@ -1428,7 +1428,7 @@ func testConfirmationEvents(t *testing.T, envelope types.Envelope, envelopeError
 	case <-time.After(5 * time.Second):
 		require.FailNow(t, "timed out waiting for an envelope.sent event")
 	}
-	require.NoError(t, p2p.Send(rw1, messageResponseCode, types.NewMessagesResponse(hash, envelopeErrors)))
+	require.NoError(t, p2p.Send(rw1, messageResponseCode, v0.NewMessagesResponse(hash, envelopeErrors)))
 	require.NoError(t, p2p.Send(rw1, batchAcknowledgedCode, hash))
 	select {
 	case ev := <-events:
@@ -1715,7 +1715,7 @@ func TestMailserverCompletionEvent(t *testing.T) {
 		rw2.Close()
 	}()
 
-	protocol := types.NewProtocol(w, nil, peer, rw1, w.logger)
+	protocol := v0.NewProtocol(w, nil, peer, rw1, w.logger)
 
 	require.EqualError(t, w.runMessageLoop(protocol), "p2p: read or write on closed message pipe")
 

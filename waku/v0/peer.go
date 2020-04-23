@@ -306,7 +306,7 @@ func (p *Peer) broadcast() error {
 		return nil
 	}
 
-	batchHash, err := types.SendBundle(p.ws, bundle)
+	batchHash, err := SendBundle(p.ws, bundle)
 	if err != nil {
 		p.logger.Debug("failed to deliver envelopes", zap.Binary("peer", p.ID()), zap.Error(err))
 		return err
