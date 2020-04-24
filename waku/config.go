@@ -18,6 +18,10 @@
 
 package waku
 
+import (
+	"github.com/status-im/status-go/waku/types"
+)
+
 // Config represents the configuration state of a waku node.
 type Config struct {
 	MaxMessageSize           uint32  `toml:",omitempty"`
@@ -30,7 +34,7 @@ type Config struct {
 }
 
 var DefaultConfig = Config{
-	MaxMessageSize:           DefaultMaxMessageSize,
-	MinimumAcceptedPoW:       DefaultMinimumPoW,
+	MaxMessageSize:           types.DefaultMaxMessageSize,
+	MinimumAcceptedPoW:       types.DefaultMinimumPoW,
 	RestrictLightClientsConn: true,
 }

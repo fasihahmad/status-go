@@ -70,15 +70,15 @@ func (p *Peer) Stop() {
 
 func (p *Peer) NotifyAboutPowRequirementChange(pow float64) error {
 	i := math.Float64bits(pow)
-	return p2p.Send(p.rw, statusUpdateCode, StatusOptions{PoWRequirementExport: &i})
+	return p2p.Send(p.rw, StatusUpdateCode, StatusOptions{PoWRequirementExport: &i})
 }
 
 func (p *Peer) NotifyAboutBloomFilterChange(bloom []byte) error {
-	return p2p.Send(p.rw, statusUpdateCode, StatusOptions{BloomFilterExport: bloom})
+	return p2p.Send(p.rw, StatusUpdateCode, StatusOptions{BloomFilterExport: bloom})
 }
 
 func (p *Peer) NotifyAboutTopicInterestChange(topics []types.TopicType) error {
-	return p2p.Send(p.rw, statusUpdateCode, StatusOptions{TopicInterestExport: topics})
+	return p2p.Send(p.rw, StatusUpdateCode, StatusOptions{TopicInterestExport: topics})
 }
 
 func (p *Peer) SetPeerTrusted(trusted bool) {
@@ -86,11 +86,11 @@ func (p *Peer) SetPeerTrusted(trusted bool) {
 }
 
 func (p *Peer) RequestHistoricMessages(envelope *types.Envelope) error {
-	return p2p.Send(p.rw, p2pRequestCode, envelope)
+	return p2p.Send(p.rw, P2PRequestCode, envelope)
 }
 
 func (p *Peer) SendMessagesRequest(request types.MessagesRequest) error {
-	return p2p.Send(p.rw, p2pRequestCode, request)
+	return p2p.Send(p.rw, P2PRequestCode, request)
 }
 func (p *Peer) SendHistoricMessageResponse(payload []byte) error {
 	size, r, err := rlp.EncodeToReader(payload)
@@ -98,16 +98,16 @@ func (p *Peer) SendHistoricMessageResponse(payload []byte) error {
 		return err
 	}
 
-	return p.rw.WriteMsg(p2p.Msg{Code: p2pRequestCompleteCode, Size: uint32(size), Payload: r})
+	return p.rw.WriteMsg(p2p.Msg{Code: P2PRequestCompleteCode, Size: uint32(size), Payload: r})
 
 }
 
 func (p *Peer) SendP2PMessages(envelopes []*types.Envelope) error {
-	return p2p.Send(p.rw, p2pMessageCode, envelopes)
+	return p2p.Send(p.rw, P2PMessageCode, envelopes)
 }
 
 func (p *Peer) SendRawP2PDirect(envelopes []rlp.RawValue) error {
-	return p2p.Send(p.rw, p2pMessageCode, envelopes)
+	return p2p.Send(p.rw, P2PMessageCode, envelopes)
 }
 
 func (p *Peer) SetRWWriter(rw p2p.MsgReadWriter) {
@@ -153,37 +153,37 @@ func (p *Peer) Run() error {
 
 func (p *Peer) HandlePacket(packet p2p.Msg) error {
 	switch packet.Code {
-	case messagesCode:
+	case MessagesCode:
 		if err := p.HandleMessagesCode(packet); err != nil {
-			p.logger.Warn("failed to handle messagesCode message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
+			p.logger.Warn("failed to handle MessagesCode message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
 			return err
 		}
-	case messageResponseCode:
+	case MessageResponseCode:
 		if err := p.HandleMessageResponseCode(packet); err != nil {
-			p.logger.Warn("failed to handle messageResponseCode message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
+			p.logger.Warn("failed to handle MessageResponseCode message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
 			return err
 		}
-	case batchAcknowledgedCode:
+	case BatchAcknowledgedCode:
 		if err := p.HandleBatchAcknowledgeCode(packet); err != nil {
-			p.logger.Warn("failed to handle batchAcknowledgedCode message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
+			p.logger.Warn("failed to handle BatchAcknowledgedCode message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
 			return err
 		}
-	case statusUpdateCode:
+	case StatusUpdateCode:
 		if err := p.HandleStatusUpdateCode(packet); err != nil {
 			p.logger.Warn("failed to decode status update message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
 			return err
 		}
-	case p2pMessageCode:
+	case P2PMessageCode:
 		if err := p.HandleP2PMessageCode(packet); err != nil {
 			p.logger.Warn("failed to decode direct message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
 			return err
 		}
-	case p2pRequestCode:
+	case P2PRequestCode:
 		if err := p.HandleP2PRequestCode(packet); err != nil {
 			p.logger.Warn("failed to decode p2p request message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
 			return err
 		}
-	case p2pRequestCompleteCode:
+	case P2PRequestCompleteCode:
 		if err := p.HandleP2PRequestCompleteCode(packet); err != nil {
 			p.logger.Warn("failed to decode p2p request complete message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
 			return err
@@ -250,7 +250,7 @@ func (p *Peer) HandleMessageResponseCode(packet p2p.Msg) error {
 		return fmt.Errorf("invalid response message: %v", err)
 	}
 	if resp.Version != 1 {
-		p.logger.Info("received unsupported version of MultiVersionResponse for messageResponseCode packet", zap.Uint("version", resp.Version))
+		p.logger.Info("received unsupported version of MultiVersionResponse for MessageResponseCode packet", zap.Uint("version", resp.Version))
 		return nil
 	}
 
@@ -347,14 +347,14 @@ func (p *Peer) HandleP2PRequestCompleteCode(packet p2p.Msg) error {
 	return p.host.OnP2PRequestCompleted(payload, p)
 }
 
-// sendConfirmation sends messageResponseCode and batchAcknowledgedCode messages.
+// sendConfirmation sends MessageResponseCode and BatchAcknowledgedCode messages.
 func (p *Peer) sendConfirmation(data []byte, envelopeErrors []types.EnvelopeError) (err error) {
 	batchHash := crypto.Keccak256Hash(data)
-	err = p2p.Send(p.rw, messageResponseCode, NewMessagesResponse(batchHash, envelopeErrors))
+	err = p2p.Send(p.rw, MessageResponseCode, NewMessagesResponse(batchHash, envelopeErrors))
 	if err != nil {
 		return
 	}
-	err = p2p.Send(p.rw, batchAcknowledgedCode, batchHash) // DEPRECATED
+	err = p2p.Send(p.rw, BatchAcknowledgedCode, batchHash) // DEPRECATED
 	return
 }
 
@@ -365,7 +365,7 @@ func (p *Peer) handshake() error {
 	errc := make(chan error, 1)
 	opts := p.host.ToStatusOptions()
 	go func() {
-		errc <- p2p.SendItems(p.rw, statusCode, ProtocolVersion, opts)
+		errc <- p2p.SendItems(p.rw, StatusCode, Version, opts)
 	}()
 
 	// Fetch the remote status packet and verify protocol match
@@ -373,7 +373,7 @@ func (p *Peer) handshake() error {
 	if err != nil {
 		return err
 	}
-	if packet.Code != statusCode {
+	if packet.Code != StatusCode {
 		return fmt.Errorf("p [%x] sent packet %x before status packet", p.ID(), packet.Code)
 	}
 
@@ -389,8 +389,8 @@ func (p *Peer) handshake() error {
 	if err := s.Decode(&peerProtocolVersion); err != nil {
 		return fmt.Errorf("p [%x]: failed to decode peer protocol version: %v", p.ID(), err)
 	}
-	if peerProtocolVersion != ProtocolVersion {
-		return fmt.Errorf("p [%x]: protocol version mismatch %d != %d", p.ID(), peerProtocolVersion, ProtocolVersion)
+	if peerProtocolVersion != Version {
+		return fmt.Errorf("p [%x]: protocol version mismatch %d != %d", p.ID(), peerProtocolVersion, Version)
 	}
 	// Decode and validate other status packet options.
 	if err := s.Decode(&peerOptions); err != nil {

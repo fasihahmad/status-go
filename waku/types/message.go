@@ -262,7 +262,7 @@ func (msg *sentMessage) encryptAsymmetric(key *ecdsa.PublicKey) error {
 // encryptSymmetric encrypts a message with a topic key, using AES-GCM-256.
 // nonce size should be 12 bytes (see cipher.gcmStandardNonceSize).
 func (msg *sentMessage) encryptSymmetric(key []byte) (err error) {
-	if !ValidateDataIntegrity(key, aesKeyLength) {
+	if !ValidateDataIntegrity(key, AESKeyLength) {
 		return errors.New("invalid key provided for symmetric encryption, size: " + strconv.Itoa(len(key)))
 	}
 	block, err := aes.NewCipher(key)

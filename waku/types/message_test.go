@@ -46,7 +46,7 @@ func GenerateMessageParams() (*MessageParams, error) {
 	p.WorkTime = 1
 	p.TTL = uint32(mrand.Intn(1024))
 	p.Payload = make([]byte, sz)
-	p.KeySym = make([]byte, aesKeyLength)
+	p.KeySym = make([]byte, AESKeyLength)
 	mrand.Read(p.Payload) // nolint: gosec
 	mrand.Read(p.KeySym)  // nolint: gosec
 	p.Topic = BytesToTopic(buf)
@@ -296,7 +296,7 @@ func TestEncryptWithZeroKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create new message with seed %d: %s.", seed, err)
 	}
-	params.KeySym = make([]byte, aesKeyLength)
+	params.KeySym = make([]byte, AESKeyLength)
 	_, err = msg.Wrap(params, time.Now())
 	if err == nil {
 		t.Fatalf("wrapped with zero key, seed: %d.", seed)
@@ -426,7 +426,7 @@ func TestPadding(t *testing.T) {
 func TestPaddingAppendedToSymMessagesWithSignature(t *testing.T) {
 	params := &MessageParams{
 		Payload: make([]byte, 246),
-		KeySym:  make([]byte, aesKeyLength),
+		KeySym:  make([]byte, AESKeyLength),
 	}
 
 	pSrc, err := crypto.GenerateKey()

@@ -48,6 +48,8 @@ import (
 	"github.com/status-im/status-go/waku/v0"
 )
 
+const messageQueueLimit = 1024
+
 type Bridge interface {
 	Pipe() (<-chan *types.Envelope, chan<- *types.Envelope)
 }
@@ -143,7 +145,7 @@ func New(cfg *Config, logger *zap.Logger) *Waku {
 		LightClient:              cfg.LightClient,
 		BloomFilterMode:          cfg.BloomFilterMode,
 		RestrictLightClientsConn: cfg.RestrictLightClientsConn,
-		SyncAllowance:            DefaultSyncAllowance,
+		SyncAllowance:            types.DefaultSyncAllowance,
 	}
 
 	if cfg.FullNode {
@@ -155,13 +157,13 @@ func New(cfg *Config, logger *zap.Logger) *Waku {
 
 	// p2p waku sub-protocol handler
 	waku.protocol = p2p.Protocol{
-		Name:    ProtocolName,
-		Version: uint(ProtocolVersion),
+		Name:    v0.Name,
+		Version: uint(v0.Version),
 		Length:  v0.NumberOfMessageCodes,
 		Run:     waku.HandlePeer,
 		NodeInfo: func() interface{} {
 			return map[string]interface{}{
-				"version":        ProtocolVersionStr,
+				"version":        v0.VersionStr,
 				"maxMessageSize": waku.MaxMessageSize(),
 				"minimumPoW":     waku.MinPow(),
 			}
@@ -315,7 +317,7 @@ func (w *Waku) updateTopicInterest(f *types.Filter) error {
 // SetTopicInterest sets the new topicInterest
 func (w *Waku) SetTopicInterest(topicInterest []types.TopicType) error {
 	var topicInterestMap map[types.TopicType]bool
-	if len(topicInterest) > MaxTopicInterest {
+	if len(topicInterest) > types.MaxTopicInterest {
 		return fmt.Errorf("invalid topic interest: %d", len(topicInterest))
 	}
 
@@ -357,8 +359,8 @@ func (w *Waku) MaxMessageSize() uint32 {
 
 // SetMaxMessageSize sets the maximal message size allowed by this node
 func (w *Waku) SetMaxMessageSize(size uint32) error {
-	if size > MaxMessageSize {
-		return fmt.Errorf("message size too large [%d>%d]", size, MaxMessageSize)
+	if size > types.MaxMessageSize {
+		return fmt.Errorf("message size too large [%d>%d]", size, types.MaxMessageSize)
 	}
 	w.settingsMu.Lock()
 	w.settings.MaxMsgSize = size
@@ -419,8 +421,8 @@ func (w *Waku) SetTimeSource(timesource func() time.Time) {
 func (w *Waku) APIs() []rpc.API {
 	return []rpc.API{
 		{
-			Namespace: ProtocolName,
-			Version:   ProtocolVersionStr,
+			Namespace: v0.Name,
+			Version:   v0.VersionStr,
 			Service:   NewPublicWakuAPI(w),
 			Public:    false,
 		},
@@ -790,10 +792,10 @@ func (w *Waku) GetPrivateKey(id string) (*ecdsa.PrivateKey, error) {
 // GenerateSymKey generates a random symmetric key and stores it under id,
 // which is then returned. Will be used in the future for session key exchange.
 func (w *Waku) GenerateSymKey() (string, error) {
-	key, err := types.GenerateSecureRandomData(aesKeyLength)
+	key, err := types.GenerateSecureRandomData(types.AESKeyLength)
 	if err != nil {
 		return "", err
-	} else if !types.ValidateDataIntegrity(key, aesKeyLength) {
+	} else if !types.ValidateDataIntegrity(key, types.AESKeyLength) {
 		return "", fmt.Errorf("error in GenerateSymKey: crypto/rand failed to generate random data")
 	}
 
@@ -831,7 +833,7 @@ func (w *Waku) AddSymKey(id string, key []byte) (string, error) {
 
 // AddSymKeyDirect stores the key, and returns its id.
 func (w *Waku) AddSymKeyDirect(key []byte) (string, error) {
-	if len(key) != aesKeyLength {
+	if len(key) != types.AESKeyLength {
 		return "", fmt.Errorf("wrong key size: %d", len(key))
 	}
 
@@ -862,7 +864,7 @@ func (w *Waku) AddSymKeyFromPassword(password string) (string, error) {
 
 	// kdf should run no less than 0.1 seconds on an average computer,
 	// because it's an once in a session experience
-	derived := pbkdf2.Key([]byte(password), nil, 65356, aesKeyLength, sha256.New)
+	derived := pbkdf2.Key([]byte(password), nil, 65356, types.AESKeyLength, sha256.New)
 	if err != nil {
 		return "", err
 	}
@@ -1194,7 +1196,7 @@ func (w *Waku) addAndBridge(envelope *types.Envelope, isP2P bool, bridged bool) 
 
 	types.EnvelopesReceivedCounter.Inc()
 	if sent > now {
-		if sent-DefaultSyncAllowance > now {
+		if sent-types.DefaultSyncAllowance > now {
 			types.EnvelopesCacheFailedCounter.WithLabelValues("in_future").Inc()
 			log.Warn("envelope created in the future", "hash", envelope.Hash())
 			return false, types.TimeSyncError(errors.New("envelope from future"))
@@ -1204,7 +1206,7 @@ func (w *Waku) addAndBridge(envelope *types.Envelope, isP2P bool, bridged bool) 
 	}
 
 	if envelope.Expiry < now {
-		if envelope.Expiry+DefaultSyncAllowance*2 < now {
+		if envelope.Expiry+types.DefaultSyncAllowance*2 < now {
 			types.EnvelopesCacheFailedCounter.WithLabelValues("very_old").Inc()
 			log.Warn("very old envelope", "hash", envelope.Hash())
 			return false, types.TimeSyncError(errors.New("very old envelope"))

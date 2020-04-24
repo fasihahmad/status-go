@@ -46,7 +46,7 @@ const (
 
 	TopicLength      = 4                      // in bytes
 	signatureLength  = crypto.SignatureLength // in bytes
-	aesKeyLength     = 32                     // in bytes
+	AESKeyLength     = 32                     // in bytes
 	aesNonceLength   = 12                     // in bytes; for more info please see cipher.gcmStandardNonceSize & aesgcm.NonceSize()
 	KeyIDSize        = 32                     // in bytes
 	BloomFilterSize  = 64                     // in bytes
@@ -59,8 +59,7 @@ const (
 	DefaultMaxMessageSize = uint32(1024 * 1024)
 	DefaultMinimumPoW     = 0.2
 
-	padSizeLimit      = 256 // just an arbitrary number, could be changed without breaking the protocol
-	messageQueueLimit = 1024
+	padSizeLimit = 256 // just an arbitrary number, could be changed without breaking the protocol
 
 	ExpirationCycle   = time.Second
 	TransmissionCycle = 300 * time.Millisecond

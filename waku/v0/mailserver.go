@@ -43,7 +43,7 @@ func SendBundle(rw p2p.MsgWriter, bundle []*types.Envelope) (rst common.Hash, er
 		return
 	}
 	err = rw.WriteMsg(p2p.Msg{
-		Code:    messagesCode,
+		Code:    MessagesCode,
 		Size:    uint32(len(data)),
 		Payload: bytes.NewBuffer(data),
 	})

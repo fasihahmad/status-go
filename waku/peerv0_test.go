@@ -519,7 +519,7 @@ func TestPeerHandshakeWithTwoFullNode(t *testing.T) {
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
-			ProtocolVersion,
+			v0.Version,
 			v0.StatusOptions{PoWRequirementExport: &pow},
 		}},
 		nil,
@@ -538,7 +538,7 @@ func TestHandshakeWithOldVersionWithoutLightModeFlag(t *testing.T) {
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
-			ProtocolVersion,
+			v0.Version,
 			v0.StatusOptions{PoWRequirementExport: &pow},
 		}},
 		nil,
@@ -560,7 +560,7 @@ func TestTwoLightPeerHandshakeRestrictionOff(t *testing.T) {
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
-			ProtocolVersion,
+			v0.Version,
 			v0.StatusOptions{PoWRequirementExport: &pow, LightNodeEnabledExport: &lightNodeEnabled},
 		}},
 		nil,
@@ -579,7 +579,7 @@ func TestTwoLightPeerHandshakeError(t *testing.T) {
 	p1 := v0.NewProtocol(
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
-		&rwStub{[]interface{}{ProtocolVersion, uint64(123), make([]byte, types.BloomFilterSize), true}},
+		&rwStub{[]interface{}{v0.Version, uint64(123), make([]byte, types.BloomFilterSize), true}},
 		nil,
 	)
 	err := p1.Start()
@@ -597,7 +597,7 @@ func (stub *rwStub) ReadMsg() (p2p.Msg, error) {
 	if err != nil {
 		return p2p.Msg{}, err
 	}
-	return p2p.Msg{Code: statusCode, Size: uint32(size), Payload: r}, nil
+	return p2p.Msg{Code: v0.StatusCode, Size: uint32(size), Payload: r}, nil
 }
 
 func (stub *rwStub) WriteMsg(m p2p.Msg) error {

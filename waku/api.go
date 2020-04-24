@@ -63,11 +63,6 @@ func NewPublicWakuAPI(w *Waku) *PublicWakuAPI {
 	return api
 }
 
-// Version returns the Waku sub-protocol version.
-func (api *PublicWakuAPI) Version(ctx context.Context) string {
-	return ProtocolVersionStr
-}
-
 // Info contains diagnostic information.
 type Info struct {
 	Messages       int     `json:"messages"`       // Number of floating messages.
@@ -265,7 +260,7 @@ func (api *PublicWakuAPI) Post(ctx context.Context, req NewMessage) (hexutil.Byt
 		if params.KeySym, err = api.w.GetSymKey(req.SymKeyID); err != nil {
 			return nil, err
 		}
-		if !types.ValidateDataIntegrity(params.KeySym, aesKeyLength) {
+		if !types.ValidateDataIntegrity(params.KeySym, types.AESKeyLength) {
 			return nil, ErrInvalidSymmetricKey
 		}
 	}
@@ -384,7 +379,7 @@ func (api *PublicWakuAPI) Messages(ctx context.Context, crit Criteria) (*rpc.Sub
 		if err != nil {
 			return nil, err
 		}
-		if !types.ValidateDataIntegrity(key, aesKeyLength) {
+		if !types.ValidateDataIntegrity(key, types.AESKeyLength) {
 			return nil, ErrInvalidSymmetricKey
 		}
 		filter.KeySym = key
@@ -554,7 +549,7 @@ func (api *PublicWakuAPI) NewMessageFilter(req Criteria) (string, error) {
 		if keySym, err = api.w.GetSymKey(req.SymKeyID); err != nil {
 			return "", err
 		}
-		if !types.ValidateDataIntegrity(keySym, aesKeyLength) {
+		if !types.ValidateDataIntegrity(keySym, types.AESKeyLength) {
 			return "", ErrInvalidSymmetricKey
 		}
 	}
