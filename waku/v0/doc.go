@@ -2,7 +2,7 @@ package v0
 
 // Waku protocol parameters
 const (
-	ProtocolVersion    = uint64(0) // Protocol version number
+	ProtocolVersion    = uint64(0) // Peer version number
 	ProtocolVersionStr = "0"       // The same, as a string
 	ProtocolName       = "waku"    // Nickname of the protocol
 

@@ -1,29 +1,36 @@
 package v0
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"math"
 	"net"
 	"sync"
 	"time"
 
-	mapset "github.com/deckarep/golang-set"
 	"go.uber.org/zap"
 
+	mapset "github.com/deckarep/golang-set"
+
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	types "github.com/status-im/status-go/waku/types"
+	"github.com/status-im/status-go/waku/types"
 )
 
-// Peer represents a waku protocol peer connection.
 type Peer struct {
-	host   types.WakuHost
-	peer   *p2p.Peer
-	ws     p2p.MsgReadWriter
-	logger *zap.Logger
+	host    types.WakuHost
+	rw      p2p.MsgReadWriter
+	p2pPeer *p2p.Peer
+	logger  *zap.Logger
+
+	quit chan struct{}
 
 	trusted        bool
 	powRequirement float64
@@ -45,25 +52,165 @@ type Peer struct {
 	rateLimits           types.RateLimits
 
 	known mapset.Set // Messages already known by the peer to avoid wasting bandwidth
+}
 
-	quit chan struct{}
+func (p *Peer) Start() error {
+	if err := p.handshake(); err != nil {
+		return err
+	}
+	go p.update()
+	p.logger.Debug("starting peer", zap.Binary("peerID", p.ID()))
+	return nil
+}
+
+func (p *Peer) Stop() {
+	close(p.quit)
+	p.logger.Debug("stopping peer", zap.Binary("peerID", p.ID()))
+}
+
+func (p *Peer) NotifyAboutPowRequirementChange(pow float64) error {
+	i := math.Float64bits(pow)
+	return p2p.Send(p.rw, statusUpdateCode, StatusOptions{PoWRequirementExport: &i})
+}
+
+func (p *Peer) NotifyAboutBloomFilterChange(bloom []byte) error {
+	return p2p.Send(p.rw, statusUpdateCode, StatusOptions{BloomFilterExport: bloom})
+}
+
+func (p *Peer) NotifyAboutTopicInterestChange(topics []types.TopicType) error {
+	return p2p.Send(p.rw, statusUpdateCode, StatusOptions{TopicInterestExport: topics})
+}
+
+func (p *Peer) SetPeerTrusted(trusted bool) {
+	p.trusted = trusted
+}
+
+func (p *Peer) RequestHistoricMessages(envelope *types.Envelope) error {
+	return p2p.Send(p.rw, p2pRequestCode, envelope)
+}
+
+func (p *Peer) SendMessagesRequest(request types.MessagesRequest) error {
+	return p2p.Send(p.rw, p2pRequestCode, request)
+}
+func (p *Peer) SendHistoricMessageResponse(payload []byte) error {
+	size, r, err := rlp.EncodeToReader(payload)
+	if err != nil {
+		return err
+	}
+
+	return p.rw.WriteMsg(p2p.Msg{Code: p2pRequestCompleteCode, Size: uint32(size), Payload: r})
+
+}
+
+func (p *Peer) SendP2PMessages(envelopes []*types.Envelope) error {
+	return p2p.Send(p.rw, p2pMessageCode, envelopes)
+}
+
+func (p *Peer) SendRawP2PDirect(envelopes []rlp.RawValue) error {
+	return p2p.Send(p.rw, p2pMessageCode, envelopes)
+}
+
+func (p *Peer) SetRWWriter(rw p2p.MsgReadWriter) {
+	p.rw = rw
+}
+
+// ID returns a peer's id
+func (p *Peer) ID() []byte {
+	id := p.p2pPeer.ID()
+	return id[:]
+}
+
+func (p *Peer) EnodeID() enode.ID {
+	return p.p2pPeer.ID()
+}
+
+func (p *Peer) IP() net.IP {
+	return p.p2pPeer.Node().IP()
+}
+
+func (p *Peer) Run() error {
+	logger := p.logger.Named("Run")
+
+	for {
+		// fetch the next packet
+		packet, err := p.rw.ReadMsg()
+		if err != nil {
+			logger.Info("failed to read a message", zap.Binary("peer", p.ID()), zap.Error(err))
+			return err
+		}
+
+		if packet.Size > p.host.MaxMessageSize() {
+			logger.Warn("oversize message received", zap.Binary("peer", p.ID()), zap.Uint32("size", packet.Size))
+			return errors.New("oversize message received")
+		}
+
+		if err := p.HandlePacket(packet); err != nil {
+			logger.Warn("failed to handle packet message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
+		}
+		_ = packet.Discard()
+	}
+}
+
+func (p *Peer) HandlePacket(packet p2p.Msg) error {
+	switch packet.Code {
+	case messagesCode:
+		if err := p.HandleMessagesCode(packet); err != nil {
+			p.logger.Warn("failed to handle messagesCode message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
+			return err
+		}
+	case messageResponseCode:
+		if err := p.HandleMessageResponseCode(packet); err != nil {
+			p.logger.Warn("failed to handle messageResponseCode message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
+			return err
+		}
+	case batchAcknowledgedCode:
+		if err := p.HandleBatchAcknowledgeCode(packet); err != nil {
+			p.logger.Warn("failed to handle batchAcknowledgedCode message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
+			return err
+		}
+	case statusUpdateCode:
+		if err := p.HandleStatusUpdateCode(packet); err != nil {
+			p.logger.Warn("failed to decode status update message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
+			return err
+		}
+	case p2pMessageCode:
+		if err := p.HandleP2PMessageCode(packet); err != nil {
+			p.logger.Warn("failed to decode direct message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
+			return err
+		}
+	case p2pRequestCode:
+		if err := p.HandleP2PRequestCode(packet); err != nil {
+			p.logger.Warn("failed to decode p2p request message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
+			return err
+		}
+	case p2pRequestCompleteCode:
+		if err := p.HandleP2PRequestCompleteCode(packet); err != nil {
+			p.logger.Warn("failed to decode p2p request complete message, peer will be disconnected", zap.Binary("peer", p.ID()), zap.Error(err))
+			return err
+		}
+	default:
+		// New message types might be implemented in the future versions of Waku.
+		// For forward compatibility, just ignore.
+		p.logger.Debug("ignored packet with message code", zap.Uint64("code", packet.Code))
+	}
+
+	return nil
 }
 
 func Init() {
 	initRLPKeyFields()
 }
 
-// newPeer creates a new waku peer object, but does not run the handshake itself.
-func NewPeer(host types.WakuHost, remote *p2p.Peer, rw p2p.MsgReadWriter, logger *zap.Logger) types.WakuPeer {
+func NewProtocol(host types.WakuHost, p2pPeer *p2p.Peer, rw p2p.MsgReadWriter, logger *zap.Logger) *Peer {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
 
 	return &Peer{
 		host:           host,
-		peer:           remote,
-		ws:             rw,
+		p2pPeer:        p2pPeer,
 		logger:         logger,
+		rw:             rw,
 		trusted:        false,
 		powRequirement: 0.0,
 		known:          mapset.NewSet(),
@@ -73,63 +220,85 @@ func NewPeer(host types.WakuHost, remote *p2p.Peer, rw p2p.MsgReadWriter, logger
 	}
 }
 
-// Start initiates the peer updater, periodically broadcasting the waku packets
-// into the network.
-func (p *Peer) Start() {
-	go p.update()
-	p.logger.Debug("starting peer", zap.Binary("peerID", p.ID()))
-}
-
-// Stop terminates the peer updater, stopping message forwarding to it.
-func (p *Peer) Stop() {
-	close(p.quit)
-	p.logger.Debug("stopping peer", zap.Binary("peerID", p.ID()))
-}
-
-func (p *Peer) SetPeerTrusted(trusted bool) {
-	p.trusted = trusted
-}
-
-func (p *Peer) Trusted() bool {
-	return p.trusted
-}
-
-func (p *Peer) EnodeID() enode.ID {
-	return p.peer.ID()
-}
-
-func (p *Peer) IP() net.IP {
-	return p.peer.Node().IP()
-}
-
-func (p *Peer) RequestHistoricMessages(envelope *types.Envelope) error {
-	return p2p.Send(p.ws, p2pRequestCode, envelope)
-}
-
-func (p *Peer) SendMessagesRequest(request types.MessagesRequest) error {
-	return p2p.Send(p.ws, p2pRequestCode, request)
-}
-
-func (p *Peer) SendHistoricMessageResponse(payload []byte) error {
-	size, r, err := rlp.EncodeToReader(payload)
+func (p *Peer) HandleMessagesCode(packet p2p.Msg) error {
+	// decode the contained envelopes
+	data, err := ioutil.ReadAll(packet.Payload)
 	if err != nil {
-		return err
+		types.EnvelopesRejectedCounter.WithLabelValues("failed_read").Inc()
+		return fmt.Errorf("failed to read packet payload: %v", err)
 	}
 
-	return p.ws.WriteMsg(p2p.Msg{Code: p2pRequestCompleteCode, Size: uint32(size), Payload: r})
+	var envelopes []*types.Envelope
+	if err := rlp.DecodeBytes(data, &envelopes); err != nil {
+		types.EnvelopesRejectedCounter.WithLabelValues("invalid_data").Inc()
+		return fmt.Errorf("invalid payload: %v", err)
+	}
 
+	envelopeErrors, err := p.host.OnNewEnvelopes(envelopes, p)
+
+	if p.host.ConfirmationsEnabled() {
+		go p.sendConfirmation(data, envelopeErrors) // nolint: errcheck
+	}
+
+	return err
 }
 
-func (p *Peer) SendP2PMessages(envelopes []*types.Envelope) error {
-	return p2p.Send(p.ws, p2pMessageCode, envelopes)
+func (p *Peer) HandleMessageResponseCode(packet p2p.Msg) error {
+	var resp MultiVersionResponse
+	if err := packet.Decode(&resp); err != nil {
+		types.EnvelopesRejectedCounter.WithLabelValues("failed_read").Inc()
+		return fmt.Errorf("invalid response message: %v", err)
+	}
+	if resp.Version != 1 {
+		p.logger.Info("received unsupported version of MultiVersionResponse for messageResponseCode packet", zap.Uint("version", resp.Version))
+		return nil
+	}
+
+	response, err := resp.DecodeResponse1()
+	if err != nil {
+		types.EnvelopesRejectedCounter.WithLabelValues("invalid_data").Inc()
+		return fmt.Errorf("failed to decode response message: %v", err)
+	}
+
+	return p.host.OnMessagesResponse(response, p)
 }
 
-func (p *Peer) SendP2PDirect(envelopes []*types.Envelope) error {
-	return p2p.Send(p.ws, p2pMessageCode, envelopes)
+func (p *Peer) HandleP2PRequestCode(packet p2p.Msg) error {
+	// Must be processed if mail server is implemented. Otherwise ignore.
+	if !p.host.Mailserver() {
+		return nil
+	}
+
+	// Read all data as we will try to decode it possibly twice.
+	data, err := ioutil.ReadAll(packet.Payload)
+	if err != nil {
+		return fmt.Errorf("invalid p2p request messages: %v", err)
+	}
+	r := bytes.NewReader(data)
+	packet.Payload = r
+
+	// As we failed to decode the request, let's set the offset
+	// to the beginning and try decode it again.
+	if _, err := r.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("invalid p2p request message: %v", err)
+	}
+
+	var request types.MessagesRequest
+	errReq := packet.Decode(&request)
+	if errReq == nil {
+		return p.host.OnMessagesRequest(request, p)
+	}
+	p.logger.Info("failed to decode p2p request message", zap.Binary("peer", p.ID()), zap.Error(errReq))
+
+	return errors.New("invalid p2p request message")
 }
 
-func (p *Peer) SendRawP2PDirect(envelopes []rlp.RawValue) error {
-	return p2p.Send(p.ws, p2pMessageCode, envelopes)
+func (p *Peer) HandleBatchAcknowledgeCode(packet p2p.Msg) error {
+	var batchHash common.Hash
+	if err := packet.Decode(&batchHash); err != nil {
+		return fmt.Errorf("invalid batch ack message: %v", err)
+	}
+	return p.host.OnBatchAcknowledged(batchHash, p)
 }
 
 func (p *Peer) HandleStatusUpdateCode(packet p2p.Msg) error {
@@ -142,20 +311,65 @@ func (p *Peer) HandleStatusUpdateCode(packet p2p.Msg) error {
 	}
 
 	return p.setOptions(StatusOptions)
+
+}
+
+func (p *Peer) HandleP2PMessageCode(packet p2p.Msg) error {
+	// peer-to-peer message, sent directly to peer bypassing PoW checks, etc.
+	// this message is not supposed to be forwarded to other peers, and
+	// therefore might not satisfy the PoW, expiry and other requirements.
+	// these messages are only accepted from the trusted peer.
+	if !p.trusted {
+		return nil
+	}
+
+	var (
+		envelopes []*types.Envelope
+		err       error
+	)
+
+	if err = packet.Decode(&envelopes); err != nil {
+		return fmt.Errorf("invalid direct message payload: %v", err)
+	}
+
+	return p.host.OnNewP2PEnvelopes(envelopes, p)
+}
+
+func (p *Peer) HandleP2PRequestCompleteCode(packet p2p.Msg) error {
+	if !p.trusted {
+		return nil
+	}
+
+	var payload []byte
+	if err := packet.Decode(&payload); err != nil {
+		return fmt.Errorf("invalid p2p request complete message: %v", err)
+	}
+	return p.host.OnP2PRequestCompleted(payload, p)
+}
+
+// sendConfirmation sends messageResponseCode and batchAcknowledgedCode messages.
+func (p *Peer) sendConfirmation(data []byte, envelopeErrors []types.EnvelopeError) (err error) {
+	batchHash := crypto.Keccak256Hash(data)
+	err = p2p.Send(p.rw, messageResponseCode, NewMessagesResponse(batchHash, envelopeErrors))
+	if err != nil {
+		return
+	}
+	err = p2p.Send(p.rw, batchAcknowledgedCode, batchHash) // DEPRECATED
+	return
 }
 
 // handshake sends the protocol initiation status message to the remote peer and
 // verifies the remote status too.
-func (p *Peer) Handshake() error {
+func (p *Peer) handshake() error {
 	// Send the handshake status message asynchronously
 	errc := make(chan error, 1)
 	opts := p.host.ToStatusOptions()
 	go func() {
-		errc <- p2p.SendItems(p.ws, statusCode, ProtocolVersion, opts)
+		errc <- p2p.SendItems(p.rw, statusCode, ProtocolVersion, opts)
 	}()
 
 	// Fetch the remote status packet and verify protocol match
-	packet, err := p.ws.ReadMsg()
+	packet, err := p.rw.ReadMsg()
 	if err != nil {
 		return err
 	}
@@ -192,6 +406,31 @@ func (p *Peer) Handshake() error {
 		return fmt.Errorf("p [%x] failed to send status packet: %v", p.ID(), err)
 	}
 	return nil
+}
+
+// update executes periodic operations on the peer, including message transmission
+// and expiration.
+func (p *Peer) update() {
+	// Start the tickers for the updates
+	expire := time.NewTicker(types.ExpirationCycle)
+	transmit := time.NewTicker(types.TransmissionCycle)
+
+	// Loop and transmit until termination is requested
+	for {
+		select {
+		case <-expire.C:
+			p.expire()
+
+		case <-transmit.C:
+			if err := p.broadcast(); err != nil {
+				p.logger.Debug("broadcasting failed", zap.Binary("peer", p.ID()), zap.Error(err))
+				return
+			}
+
+		case <-p.quit:
+			return
+		}
+	}
 }
 
 func (p *Peer) setOptions(peerOptions StatusOptions) error {
@@ -238,41 +477,6 @@ func (p *Peer) setOptions(peerOptions StatusOptions) error {
 	return nil
 }
 
-// update executes periodic operations on the peer, including message transmission
-// and expiration.
-func (p *Peer) update() {
-	// Start the tickers for the updates
-	expire := time.NewTicker(types.ExpirationCycle)
-	transmit := time.NewTicker(types.TransmissionCycle)
-
-	// Loop and transmit until termination is requested
-	for {
-		select {
-		case <-expire.C:
-			p.expire()
-
-		case <-transmit.C:
-			if err := p.broadcast(); err != nil {
-				p.logger.Debug("broadcasting failed", zap.Binary("peer", p.ID()), zap.Error(err))
-				return
-			}
-
-		case <-p.quit:
-			return
-		}
-	}
-}
-
-// mark marks an envelope known to the peer so that it won't be sent back.
-func (p *Peer) Mark(envelope *types.Envelope) {
-	p.known.Add(envelope.Hash())
-}
-
-// marked checks if an envelope is already known to the remote peer.
-func (p *Peer) Marked(envelope *types.Envelope) bool {
-	return p.known.Contains(envelope.Hash())
-}
-
 // expire iterates over all the known envelopes in the host and removes all
 // expired (unknown) ones from the known list.
 func (p *Peer) expire() {
@@ -304,7 +508,7 @@ func (p *Peer) broadcast() error {
 		return nil
 	}
 
-	batchHash, err := SendBundle(p.ws, bundle)
+	batchHash, err := SendBundle(p.rw, bundle)
 	if err != nil {
 		p.logger.Debug("failed to deliver envelopes", zap.Binary("peer", p.ID()), zap.Error(err))
 		return err
@@ -316,7 +520,7 @@ func (p *Peer) broadcast() error {
 		event := types.EnvelopeEvent{
 			Event: types.EventEnvelopeSent,
 			Hash:  e.Hash(),
-			Peer:  p.peer.ID(),
+			Peer:  p.EnodeID(),
 		}
 		if p.confirmationsEnabled {
 			event.Batch = batchHash
@@ -325,71 +529,6 @@ func (p *Peer) broadcast() error {
 	}
 	p.logger.Debug("broadcasted bundles successfully", zap.Binary("peer", p.ID()), zap.Int("count", len(bundle)))
 	return nil
-}
-
-// ID returns a peer's id
-func (p *Peer) ID() []byte {
-	id := p.peer.ID()
-	return id[:]
-}
-
-func (p *Peer) PoWRequirement() float64 {
-	return p.powRequirement
-}
-
-func (p *Peer) NotifyAboutPowRequirementChange(pow float64) error {
-	i := math.Float64bits(pow)
-	return p2p.Send(p.ws, statusUpdateCode, StatusOptions{PoWRequirementExport: &i})
-}
-
-func (p *Peer) NotifyAboutBloomFilterChange(bloom []byte) error {
-	return p2p.Send(p.ws, statusUpdateCode, StatusOptions{BloomFilterExport: bloom})
-}
-
-func (p *Peer) NotifyAboutTopicInterestChange(topics []types.TopicType) error {
-	return p2p.Send(p.ws, statusUpdateCode, StatusOptions{TopicInterestExport: topics})
-}
-
-func (p *Peer) bloomMatch(env *types.Envelope) bool {
-	p.bloomMu.Lock()
-	defer p.bloomMu.Unlock()
-	return p.fullNode || types.BloomFilterMatch(p.bloomFilter, env.Bloom())
-}
-
-func (p *Peer) BloomFilter() []byte {
-	p.bloomMu.Lock()
-	defer p.bloomMu.Unlock()
-
-	bloomFilterCopy := make([]byte, len(p.bloomFilter))
-	copy(bloomFilterCopy, p.bloomFilter)
-	return bloomFilterCopy
-}
-
-func (p *Peer) topicInterestMatch(env *types.Envelope) bool {
-	p.topicInterestMu.Lock()
-	defer p.topicInterestMu.Unlock()
-
-	if p.topicInterest == nil {
-		return false
-	}
-
-	return p.topicInterest[env.Topic]
-}
-
-// topicOrBloomMatch matches against topic-interest if topic interest
-// is not nil. Otherwise it will match against the bloom-filter.
-// If the bloom-filter is nil, or full, the node is considered a full-node
-// and any envelope will be accepted. An empty topic-interest (but not nil)
-// signals that we are not interested in any envelope.
-func (p *Peer) topicOrBloomMatch(env *types.Envelope) bool {
-	p.topicInterestMu.Lock()
-	topicInterestMode := p.topicInterest != nil
-	p.topicInterestMu.Unlock()
-
-	if topicInterestMode {
-		return p.topicInterestMatch(env)
-	}
-	return p.bloomMatch(env)
 }
 
 func (p *Peer) setBloomFilter(bloom []byte) {
@@ -422,4 +561,60 @@ func (p *Peer) setRateLimits(r types.RateLimits) {
 	p.rateLimitsMu.Lock()
 	p.rateLimits = r
 	p.rateLimitsMu.Unlock()
+}
+
+// Marked checks if an envelope is already known to the remote peer.
+func (p *Peer) Marked(envelope *types.Envelope) bool {
+	return p.known.Contains(envelope.Hash())
+}
+
+// topicOrBloomMatch matches against topic-interest if topic interest
+// is not nil. Otherwise it will match against the bloom-filter.
+// If the bloom-filter is nil, or full, the node is considered a full-node
+// and any envelope will be accepted. An empty topic-interest (but not nil)
+// signals that we are not interested in any envelope.
+func (p *Peer) topicOrBloomMatch(env *types.Envelope) bool {
+	p.topicInterestMu.Lock()
+	topicInterestMode := p.topicInterest != nil
+	p.topicInterestMu.Unlock()
+
+	if topicInterestMode {
+		return p.topicInterestMatch(env)
+	}
+	return p.bloomMatch(env)
+}
+
+func (p *Peer) topicInterestMatch(env *types.Envelope) bool {
+	p.topicInterestMu.Lock()
+	defer p.topicInterestMu.Unlock()
+
+	if p.topicInterest == nil {
+		return false
+	}
+
+	return p.topicInterest[env.Topic]
+}
+
+// mark marks an envelope known to the peer so that it won't be sent back.
+func (p *Peer) Mark(envelope *types.Envelope) {
+	p.known.Add(envelope.Hash())
+}
+
+func (p *Peer) bloomMatch(env *types.Envelope) bool {
+	p.bloomMu.Lock()
+	defer p.bloomMu.Unlock()
+	return p.fullNode || types.BloomFilterMatch(p.bloomFilter, env.Bloom())
+}
+
+func (p *Peer) BloomFilter() []byte {
+	p.bloomMu.Lock()
+	defer p.bloomMu.Unlock()
+
+	bloomFilterCopy := make([]byte, len(p.bloomFilter))
+	copy(bloomFilterCopy, p.bloomFilter)
+	return bloomFilterCopy
+}
+
+func (p *Peer) PoWRequirement() float64 {
+	return p.powRequirement
 }

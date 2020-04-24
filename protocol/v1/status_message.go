@@ -18,7 +18,7 @@ import (
 
 type StatusMessageT int
 
-// StatusMessage is any Status Protocol message.
+// StatusMessage is any Status Peer message.
 type StatusMessage struct {
 	// TransportMessage is the parsed message received from the transport layer, i.e the input
 	TransportMessage *types.Message `json:"transportMessage"`

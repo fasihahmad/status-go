@@ -414,7 +414,7 @@ func TestPeerBasic(t *testing.T) {
 		t.Fatalf("failed Wrap with seed %d.", seed)
 	}
 
-	p := v0.NewPeer(nil, nil, nil, nil)
+	p := v0.NewProtocol(nil, nil, nil, nil)
 	p.Mark(env)
 	if !p.Marked(env) {
 		t.Fatalf("failed mark with seed %d.", seed)
@@ -437,9 +437,9 @@ func checkPowExchangeForNodeZeroOnce(t *testing.T, mustPass bool) bool {
 	cnt := 0
 	for i, node := range nodes {
 		for protocol := range node.waku.peers {
-			if protocol.Peer().EnodeID() == nodes[0].server.Self().ID() {
+			if protocol.EnodeID() == nodes[0].server.Self().ID() {
 				cnt++
-				if protocol.Peer().PoWRequirement() != masterPow {
+				if protocol.PoWRequirement() != masterPow {
 					if mustPass {
 						t.Fatalf("node %d: failed to set the new pow requirement for node zero.", i)
 					} else {
@@ -458,10 +458,10 @@ func checkPowExchangeForNodeZeroOnce(t *testing.T, mustPass bool) bool {
 func checkPowExchange(t *testing.T) {
 	for i, node := range nodes {
 		for protocol := range node.waku.peers {
-			if protocol.Peer().EnodeID() != nodes[0].server.Self().ID() {
-				if protocol.Peer().PoWRequirement() != masterPow {
+			if protocol.EnodeID() != nodes[0].server.Self().ID() {
+				if protocol.PoWRequirement() != masterPow {
 					t.Fatalf("node %d: failed to exchange pow requirement in round %d; expected %f, got %f",
-						i, round, masterPow, protocol.Peer().PoWRequirement())
+						i, round, masterPow, protocol.PoWRequirement())
 				}
 			}
 		}
@@ -471,11 +471,11 @@ func checkPowExchange(t *testing.T) {
 func checkBloomFilterExchangeOnce(t *testing.T, mustPass bool) bool {
 	for i, node := range nodes {
 		for protocol := range node.waku.peers {
-			equals := bytes.Equal(protocol.Peer().BloomFilter(), masterBloomFilter)
+			equals := bytes.Equal(protocol.BloomFilter(), masterBloomFilter)
 			if !equals {
 				if mustPass {
 					t.Fatalf("node %d: failed to exchange bloom filter requirement in round %d. \n%x expected \n%x got",
-						i, round, masterBloomFilter, protocol.Peer().BloomFilter())
+						i, round, masterBloomFilter, protocol.BloomFilter())
 				} else {
 					return false
 				}
@@ -515,7 +515,7 @@ func waitForServersToStart(t *testing.T) {
 func TestPeerHandshakeWithTwoFullNode(t *testing.T) {
 	w1 := Waku{}
 	var pow uint64 = 123
-	p1 := v0.NewPeer(
+	p1 := v0.NewProtocol(
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
@@ -524,7 +524,7 @@ func TestPeerHandshakeWithTwoFullNode(t *testing.T) {
 		}},
 		nil,
 	)
-	err := p1.Handshake()
+	err := p1.Start()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -534,7 +534,7 @@ func TestPeerHandshakeWithTwoFullNode(t *testing.T) {
 func TestHandshakeWithOldVersionWithoutLightModeFlag(t *testing.T) {
 	w1 := Waku{}
 	var pow uint64 = 123
-	p1 := v0.NewPeer(
+	p1 := v0.NewProtocol(
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
@@ -543,7 +543,7 @@ func TestHandshakeWithOldVersionWithoutLightModeFlag(t *testing.T) {
 		}},
 		nil,
 	)
-	err := p1.Handshake()
+	err := p1.Start()
 	if err != nil {
 		t.Fatal()
 	}
@@ -556,7 +556,7 @@ func TestTwoLightPeerHandshakeRestrictionOff(t *testing.T) {
 	w1.SetLightClientMode(true)
 	var pow uint64 = 123
 	var lightNodeEnabled = true
-	p1 := v0.NewPeer(
+	p1 := v0.NewProtocol(
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
@@ -565,7 +565,7 @@ func TestTwoLightPeerHandshakeRestrictionOff(t *testing.T) {
 		}},
 		nil,
 	)
-	err := p1.Handshake()
+	err := p1.Start()
 	if err != nil {
 		t.FailNow()
 	}
@@ -576,13 +576,13 @@ func TestTwoLightPeerHandshakeError(t *testing.T) {
 	w1 := Waku{}
 	w1.settings.RestrictLightClientsConn = true
 	w1.SetLightClientMode(true)
-	p1 := v0.NewPeer(
+	p1 := v0.NewProtocol(
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{ProtocolVersion, uint64(123), make([]byte, types.BloomFilterSize), true}},
 		nil,
 	)
-	err := p1.Handshake()
+	err := p1.Start()
 	if err == nil {
 		t.FailNow()
 	}

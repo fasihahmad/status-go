@@ -58,13 +58,13 @@ func TestBasic(t *testing.T) {
 	p := w.Protocols()
 	shh := p[0]
 	if shh.Name != ProtocolName {
-		t.Fatalf("failed Protocol Name: %v.", shh.Name)
+		t.Fatalf("failed Peer Name: %v.", shh.Name)
 	}
 	if uint64(shh.Version) != ProtocolVersion {
-		t.Fatalf("failed Protocol Version: %v.", shh.Version)
+		t.Fatalf("failed Peer Version: %v.", shh.Version)
 	}
 	if shh.Length != v0.NumberOfMessageCodes {
-		t.Fatalf("failed Protocol Length: %v.", shh.Length)
+		t.Fatalf("failed Peer Length: %v.", shh.Length)
 	}
 	if shh.Run == nil {
 		t.Fatalf("failed shh.Run.")

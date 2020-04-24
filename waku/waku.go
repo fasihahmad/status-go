@@ -70,7 +70,7 @@ type settings struct {
 // Waku represents a dark communication interface through the Ethereum
 // network, using its very own P2P communication layer.
 type Waku struct {
-	protocol p2p.Protocol   // Protocol description and parameters
+	protocol p2p.Protocol   // Peer description and parameters
 	filters  *types.Filters // Message filters installed with Subscribe function
 
 	privateKeys map[string]*ecdsa.PrivateKey // Private key storage
@@ -81,8 +81,8 @@ type Waku struct {
 	expirations map[uint32]mapset.Set           // Message expiration pool
 	poolMu      sync.RWMutex                    // Mutex to sync the message and expiration pools
 
-	peers  map[types.Protocol]struct{} // Set of currently active peers
-	peerMu sync.RWMutex                // Mutex to sync the active peer set
+	peers  map[types.Peer]struct{} // Set of currently active peers
+	peerMu sync.RWMutex            // Mutex to sync the active peer set
 
 	msgQueue    chan *types.Envelope // Message queue for normal waku messages
 	p2pMsgQueue chan interface{}     // Message queue for peer-to-peer messages (not to be forwarded any further) and history delivery confirmations.
@@ -127,7 +127,7 @@ func New(cfg *Config, logger *zap.Logger) *Waku {
 		symKeys:     make(map[string][]byte),
 		envelopes:   make(map[common.Hash]*types.Envelope),
 		expirations: make(map[uint32]mapset.Set),
-		peers:       make(map[types.Protocol]struct{}),
+		peers:       make(map[types.Peer]struct{}),
 		msgQueue:    make(chan *types.Envelope, messageQueueLimit),
 		p2pMsgQueue: make(chan interface{}, messageQueueLimit),
 		quit:        make(chan struct{}),
@@ -505,7 +505,7 @@ func (w *Waku) notifyPeersAboutPowRequirementChange(pow float64) {
 			err = p.NotifyAboutPowRequirementChange(pow)
 		}
 		if err != nil {
-			w.logger.Warn("failed to notify peer about new pow requirement", zap.Binary("peer", p.Peer().ID()), zap.Error(err))
+			w.logger.Warn("failed to notify peer about new pow requirement", zap.Binary("peer", p.ID()), zap.Error(err))
 		}
 	}
 }
@@ -519,7 +519,7 @@ func (w *Waku) notifyPeersAboutBloomFilterChange(bloom []byte) {
 			err = p.NotifyAboutBloomFilterChange(bloom)
 		}
 		if err != nil {
-			w.logger.Warn("failed to notify peer about new bloom filter change", zap.Binary("peer", p.Peer().ID()), zap.Error(err))
+			w.logger.Warn("failed to notify peer about new bloom filter change", zap.Binary("peer", p.ID()), zap.Error(err))
 		}
 	}
 }
@@ -533,13 +533,13 @@ func (w *Waku) notifyPeersAboutTopicInterestChange(topicInterest []types.TopicTy
 			err = p.NotifyAboutTopicInterestChange(topicInterest)
 		}
 		if err != nil {
-			w.logger.Warn("failed to notify peer about new topic interest", zap.Binary("peer", p.Peer().ID()), zap.Error(err))
+			w.logger.Warn("failed to notify peer about new topic interest", zap.Binary("peer", p.ID()), zap.Error(err))
 		}
 	}
 }
 
-func (w *Waku) getPeers() []types.Protocol {
-	arr := make([]types.Protocol, len(w.peers))
+func (w *Waku) getPeers() []types.Peer {
+	arr := make([]types.Peer, len(w.peers))
 	i := 0
 	w.peerMu.Lock()
 	for p := range w.peers {
@@ -551,11 +551,11 @@ func (w *Waku) getPeers() []types.Protocol {
 }
 
 // getPeer retrieves peer by ID
-func (w *Waku) getPeer(peerID []byte) (types.Protocol, error) {
+func (w *Waku) getPeer(peerID []byte) (types.Peer, error) {
 	w.peerMu.Lock()
 	defer w.peerMu.Unlock()
 	for p := range w.peers {
-		if bytes.Equal(peerID, p.Peer().ID()) {
+		if bytes.Equal(peerID, p.ID()) {
 			return p, nil
 		}
 	}
@@ -592,7 +592,7 @@ func (w *Waku) RequestHistoricMessagesWithTimeout(peerID []byte, envelope *types
 	p.SetPeerTrusted(true)
 
 	w.envelopeFeed.Send(types.EnvelopeEvent{
-		Peer:  p.Peer().EnodeID(),
+		Peer:  p.EnodeID(),
 		Topic: envelope.Topic,
 		Hash:  envelope.Hash(),
 		Event: types.EventMailServerRequestSent,
@@ -600,7 +600,7 @@ func (w *Waku) RequestHistoricMessagesWithTimeout(peerID []byte, envelope *types
 
 	err = p.RequestHistoricMessages(envelope)
 	if timeout != 0 {
-		go w.expireRequestHistoricMessages(p.Peer().EnodeID(), envelope.Hash(), timeout)
+		go w.expireRequestHistoricMessages(p.EnodeID(), envelope.Hash(), timeout)
 	}
 	return err
 }
@@ -618,7 +618,7 @@ func (w *Waku) SendMessagesRequest(peerID []byte, request types.MessagesRequest)
 		return err
 	}
 	w.envelopeFeed.Send(types.EnvelopeEvent{
-		Peer:  p.Peer().EnodeID(),
+		Peer:  p.EnodeID(),
 		Hash:  common.BytesToHash(request.ID),
 		Event: types.EventMailServerRequestSent,
 	})
@@ -1019,7 +1019,7 @@ func (w *Waku) Stop() error {
 // connection is negotiated.
 func (w *Waku) HandlePeer(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 	// Create the new peer and start tracking it
-	var protocol types.Protocol
+	var protocol types.Peer
 	protocol = v0.NewProtocol(w, peer, rw, w.logger.Named("waku/peer"))
 
 	w.peerMu.Lock()
@@ -1042,13 +1042,13 @@ func (w *Waku) HandlePeer(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 			protocol.SetRWWriter(out)
 			return protocol.Run()
 		}
-		return w.rateLimiter.Decorate(protocol.Peer(), rw, runLoop)
+		return w.rateLimiter.Decorate(protocol, rw, runLoop)
 	}
 
 	return protocol.Run()
 }
 
-func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol types.Protocol) ([]types.EnvelopeError, error) {
+func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol types.Peer) ([]types.EnvelopeError, error) {
 	envelopeErrors := make([]types.EnvelopeError, 0)
 	trouble := false
 	for _, env := range envelopes {
@@ -1057,18 +1057,18 @@ func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol types.Protoc
 			_, isTimeSyncError := err.(types.TimeSyncError)
 			if !isTimeSyncError {
 				trouble = true
-				w.logger.Info("invalid envelope received", zap.Binary("peer", protocol.Peer().ID()), zap.Error(err))
+				w.logger.Info("invalid envelope received", zap.Binary("peer", protocol.ID()), zap.Error(err))
 			}
 			envelopeErrors = append(envelopeErrors, types.ErrorToEnvelopeError(env.Hash(), err))
 		} else if cached {
-			protocol.Peer().Mark(env)
+			protocol.Mark(env)
 		}
 
 		w.envelopeFeed.Send(types.EnvelopeEvent{
 			Event: types.EventEnvelopeReceived,
 			Topic: env.Topic,
 			Hash:  env.Hash(),
-			Peer:  protocol.Peer().EnodeID(),
+			Peer:  protocol.EnodeID(),
 		})
 		types.EnvelopesValidatedCounter.Inc()
 	}
@@ -1079,7 +1079,7 @@ func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol types.Protoc
 	return envelopeErrors, nil
 }
 
-func (w *Waku) OnNewP2PEnvelopes(envelopes []*types.Envelope, p types.Protocol) error {
+func (w *Waku) OnNewP2PEnvelopes(envelopes []*types.Envelope, p types.Peer) error {
 	for _, envelope := range envelopes {
 		w.postP2P(envelope)
 	}
@@ -1089,13 +1089,13 @@ func (w *Waku) Mailserver() bool {
 	return w.mailServer != nil
 }
 
-func (w *Waku) OnMessagesRequest(request types.MessagesRequest, p types.Protocol) error {
-	w.mailServer.Deliver(p.Peer().ID(), request)
+func (w *Waku) OnMessagesRequest(request types.MessagesRequest, p types.Peer) error {
+	w.mailServer.Deliver(p.ID(), request)
 	return nil
 }
 
-func (w *Waku) OnP2PRequestCompleted(payload []byte, p types.Protocol) error {
-	event, err := CreateMailServerEvent(p.Peer().EnodeID(), payload)
+func (w *Waku) OnP2PRequestCompleted(payload []byte, p types.Peer) error {
+	event, err := CreateMailServerEvent(p.EnodeID(), payload)
 	if err != nil {
 		return fmt.Errorf("invalid p2p request complete payload: %v", err)
 	}
@@ -1104,22 +1104,22 @@ func (w *Waku) OnP2PRequestCompleted(payload []byte, p types.Protocol) error {
 	return nil
 }
 
-func (w *Waku) OnMessagesResponse(response types.MessagesResponse, p types.Protocol) error {
+func (w *Waku) OnMessagesResponse(response types.MessagesResponse, p types.Peer) error {
 	w.envelopeFeed.Send(types.EnvelopeEvent{
 		Batch: response.Hash,
 		Event: types.EventBatchAcknowledged,
-		Peer:  p.Peer().EnodeID(),
+		Peer:  p.EnodeID(),
 		Data:  response.Errors,
 	})
 
 	return nil
 }
 
-func (w *Waku) OnBatchAcknowledged(batchHash common.Hash, p types.Protocol) error {
+func (w *Waku) OnBatchAcknowledged(batchHash common.Hash, p types.Peer) error {
 	w.envelopeFeed.Send(types.EnvelopeEvent{
 		Batch: batchHash,
 		Event: types.EventBatchAcknowledged,
-		Peer:  p.Peer().EnodeID(),
+		Peer:  p.EnodeID(),
 	})
 	return nil
 }

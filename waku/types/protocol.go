@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
-type Protocol interface {
+type Peer interface {
 	// Start performs the handshake and initialize the broadcasting of messages
 	Start() error
 	Stop()
@@ -19,9 +19,6 @@ type Protocol interface {
 
 	// SetRWWriter sets the socket to read/write
 	SetRWWriter(p2p.MsgReadWriter)
-
-	// Peer returns the remote peer involved in the protocol
-	Peer() WakuPeer
 
 	// NotifyAboutPowRequirementChange notifies the peer that POW for the host has changed
 	NotifyAboutPowRequirementChange(float64) error
@@ -39,8 +36,18 @@ type Protocol interface {
 	SendMessagesRequest(MessagesRequest) error
 	SendHistoricMessageResponse([]byte) error
 
+	Mark(*Envelope)
+	Marked(*Envelope) bool
+
 	SendP2PMessages([]*Envelope) error
 	SendRawP2PDirect([]rlp.RawValue) error
+
+	ID() []byte
+	IP() net.IP
+	EnodeID() enode.ID
+
+	PoWRequirement() float64
+	BloomFilter() []byte
 }
 
 // WakuHost is the local instance of waku, which both interacts with remote clients
@@ -64,48 +71,16 @@ type WakuHost interface {
 	Envelopes() []*Envelope
 	SendEnvelopeEvent(EnvelopeEvent) int
 	// OnNewEnvelopes handles newly received envelopes from a peer
-	OnNewEnvelopes([]*Envelope, Protocol) ([]EnvelopeError, error)
+	OnNewEnvelopes([]*Envelope, Peer) ([]EnvelopeError, error)
 	// OnNewP2PEnvelopes handles envelopes received though the P2P
 	// protocol (i.e from a mailserver in most cases)
-	OnNewP2PEnvelopes([]*Envelope, Protocol) error
+	OnNewP2PEnvelopes([]*Envelope, Peer) error
 	// OnMessagesResponse handles when the peer receive a message response
 	// from a mailserver
-	OnMessagesResponse(MessagesResponse, Protocol) error
+	OnMessagesResponse(MessagesResponse, Peer) error
 	// OnMessagesRequest handles when the peer receive a message request
 	// this only works if the peer is a mailserver
-	OnMessagesRequest(MessagesRequest, Protocol) error
-	OnBatchAcknowledged(common.Hash, Protocol) error
-	OnP2PRequestCompleted([]byte, Protocol) error
-}
-
-type WakuPeer interface {
-	Start()
-	Stop()
-	Handshake() error
-	NotifyAboutPowRequirementChange(float64) error
-	NotifyAboutBloomFilterChange([]byte) error
-	NotifyAboutTopicInterestChange([]TopicType) error
-	RequestHistoricMessages(*Envelope) error
-	SendMessagesRequest(MessagesRequest) error
-	SendHistoricMessageResponse([]byte) error
-	SendP2PMessages([]*Envelope) error
-	SendRawP2PDirect([]rlp.RawValue) error
-
-	HandleStatusUpdateCode(packet p2p.Msg) error
-
-	Mark(*Envelope)
-	Marked(*Envelope) bool
-
-	PoWRequirement() float64
-	BloomFilter() []byte
-
-	// SetPeerTrusted sets the value of trusted, meaning we will
-	// allow p2p messages from them, which is necessary to interact
-	// with mailservers.
-	SetPeerTrusted(bool)
-	// Trusted returns whether the peer has been marked as trusted
-	Trusted() bool
-	ID() []byte
-	IP() net.IP
-	EnodeID() enode.ID
+	OnMessagesRequest(MessagesRequest, Peer) error
+	OnBatchAcknowledged(common.Hash, Peer) error
+	OnP2PRequestCompleted([]byte, Peer) error
 }
