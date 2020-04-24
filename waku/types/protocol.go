@@ -10,16 +10,46 @@ import (
 )
 
 type Protocol interface {
+	// Start performs the handshake and initialize the broadcasting of messages
+	Start() error
+	Stop()
+
+	// Run start the polling loop
+	Run() error
+
+	// SetRWWriter sets the socket to read/write
+	SetRWWriter(p2p.MsgReadWriter)
+
 	// Peer returns the remote peer involved in the protocol
 	Peer() WakuPeer
-	RW() p2p.MsgReadWriter
-	HandlePacket(packet p2p.Msg) error
+
+	// NotifyAboutPowRequirementChange notifies the peer that POW for the host has changed
+	NotifyAboutPowRequirementChange(float64) error
+	// NotifyAboutBloomFilterChange notifies the peer that bloom filter for the host has changed
+	NotifyAboutBloomFilterChange([]byte) error
+	// NotifyAboutTopicInterestChange notifies the peer that topics for the host have changed
+	NotifyAboutTopicInterestChange([]TopicType) error
+
+	// SetPeerTrusted sets the value of trusted, meaning we will
+	// allow p2p messages from them, which is necessary to interact
+	// with mailservers.
+	SetPeerTrusted(bool)
+
+	RequestHistoricMessages(*Envelope) error
+	SendMessagesRequest(MessagesRequest) error
+	SendHistoricMessageResponse([]byte) error
+
+	SendP2PMessages([]*Envelope) error
+	SendRawP2PDirect([]rlp.RawValue) error
 }
 
 // WakuHost is the local instance of waku, which both interacts with remote clients
 // (peers) and local clients (through RPC API)
 type WakuHost interface {
 	ToStatusOptions() StatusOption
+	// MaxMessageSize returns the maximum accepted message size.
+	MaxMessageSize() uint32
+
 	// LightClientMode returns whether the host is running in light client mode
 	LightClientMode() bool
 	// Mailserver returns whether the host is running a mailserver
@@ -59,7 +89,6 @@ type WakuPeer interface {
 	SendMessagesRequest(MessagesRequest) error
 	SendHistoricMessageResponse([]byte) error
 	SendP2PMessages([]*Envelope) error
-	SendP2PDirect([]*Envelope) error
 	SendRawP2PDirect([]rlp.RawValue) error
 
 	HandleStatusUpdateCode(packet p2p.Msg) error

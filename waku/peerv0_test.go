@@ -37,8 +37,8 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/status-im/status-go/waku/v0"
 	"github.com/status-im/status-go/waku/types"
+	"github.com/status-im/status-go/waku/v0"
 )
 
 var keys = []string{
@@ -436,10 +436,10 @@ func checkPowExchangeForNodeZero(t *testing.T) {
 func checkPowExchangeForNodeZeroOnce(t *testing.T, mustPass bool) bool {
 	cnt := 0
 	for i, node := range nodes {
-		for peer := range node.waku.peers {
-			if peer.EnodeID() == nodes[0].server.Self().ID() {
+		for protocol := range node.waku.peers {
+			if protocol.Peer().EnodeID() == nodes[0].server.Self().ID() {
 				cnt++
-				if peer.PoWRequirement() != masterPow {
+				if protocol.Peer().PoWRequirement() != masterPow {
 					if mustPass {
 						t.Fatalf("node %d: failed to set the new pow requirement for node zero.", i)
 					} else {
@@ -457,11 +457,11 @@ func checkPowExchangeForNodeZeroOnce(t *testing.T, mustPass bool) bool {
 
 func checkPowExchange(t *testing.T) {
 	for i, node := range nodes {
-		for peer := range node.waku.peers {
-			if peer.EnodeID() != nodes[0].server.Self().ID() {
-				if peer.PoWRequirement() != masterPow {
+		for protocol := range node.waku.peers {
+			if protocol.Peer().EnodeID() != nodes[0].server.Self().ID() {
+				if protocol.Peer().PoWRequirement() != masterPow {
 					t.Fatalf("node %d: failed to exchange pow requirement in round %d; expected %f, got %f",
-						i, round, masterPow, peer.PoWRequirement())
+						i, round, masterPow, protocol.Peer().PoWRequirement())
 				}
 			}
 		}
@@ -470,12 +470,12 @@ func checkPowExchange(t *testing.T) {
 
 func checkBloomFilterExchangeOnce(t *testing.T, mustPass bool) bool {
 	for i, node := range nodes {
-		for peer := range node.waku.peers {
-			equals := bytes.Equal(peer.BloomFilter(), masterBloomFilter)
+		for protocol := range node.waku.peers {
+			equals := bytes.Equal(protocol.Peer().BloomFilter(), masterBloomFilter)
 			if !equals {
 				if mustPass {
 					t.Fatalf("node %d: failed to exchange bloom filter requirement in round %d. \n%x expected \n%x got",
-						i, round, masterBloomFilter, peer.BloomFilter())
+						i, round, masterBloomFilter, protocol.Peer().BloomFilter())
 				} else {
 					return false
 				}

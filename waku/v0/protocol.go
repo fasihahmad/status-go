@@ -23,6 +23,80 @@ type Protocol struct {
 	logger *zap.Logger
 }
 
+func (p *Protocol) Start() error {
+	if err := p.peer.Handshake(); err != nil {
+		return err
+	}
+	p.peer.Start()
+	return nil
+}
+
+func (p *Protocol) Stop() {
+	p.peer.Stop()
+}
+
+func (p *Protocol) NotifyAboutPowRequirementChange(pow float64) error {
+	return p.peer.NotifyAboutPowRequirementChange(pow)
+}
+
+func (p *Protocol) NotifyAboutBloomFilterChange(bloom []byte) error {
+	return p.peer.NotifyAboutBloomFilterChange(bloom)
+}
+
+func (p *Protocol) NotifyAboutTopicInterestChange(topics []types.TopicType) error {
+	return p.peer.NotifyAboutTopicInterestChange(topics)
+}
+
+func (p *Protocol) SetPeerTrusted(trusted bool) {
+	p.peer.SetPeerTrusted(trusted)
+}
+
+func (p *Protocol) RequestHistoricMessages(envelope *types.Envelope) error {
+	return p.peer.RequestHistoricMessages(envelope)
+}
+
+func (p *Protocol) SendMessagesRequest(request types.MessagesRequest) error {
+	return p.peer.SendMessagesRequest(request)
+}
+func (p *Protocol) SendHistoricMessageResponse(payload []byte) error {
+	return p.peer.SendHistoricMessageResponse(payload)
+}
+
+func (p *Protocol) SendP2PMessages(envelopes []*types.Envelope) error {
+	return p.peer.SendP2PMessages(envelopes)
+}
+
+func (p *Protocol) SendRawP2PDirect(envelopes []rlp.RawValue) error {
+	return p.peer.SendRawP2PDirect(envelopes)
+}
+
+func (p *Protocol) SetRWWriter(rw p2p.MsgReadWriter) {
+	p.rw = rw
+}
+
+func (p *Protocol) Run() error {
+	logger := p.logger.Named("Run")
+
+	for {
+		// fetch the next packet
+		packet, err := p.rw.ReadMsg()
+		if err != nil {
+			logger.Info("failed to read a message", zap.Binary("peer", p.peer.ID()), zap.Error(err))
+			return err
+		}
+
+		if packet.Size > p.host.MaxMessageSize() {
+			logger.Warn("oversize message received", zap.Binary("peer", p.peer.ID()), zap.Uint32("size", packet.Size))
+			return errors.New("oversize message received")
+		}
+
+		if err := p.HandlePacket(packet); err != nil {
+			logger.Warn("failed to handle packet message, peer will be disconnected", zap.Binary("peer", p.peer.ID()), zap.Error(err))
+		}
+		_ = packet.Discard()
+	}
+}
+
 func (p *Protocol) HandlePacket(packet p2p.Msg) error {
 	switch packet.Code {
 	case messagesCode:
@@ -77,7 +151,13 @@ func (p *Protocol) RW() p2p.MsgReadWriter {
 	return p.rw
 }
 
-func NewProtocol(host types.WakuHost, peer types.WakuPeer, rw p2p.MsgReadWriter, logger *zap.Logger) *Protocol {
+func NewProtocol(host types.WakuHost, p2pPeer *p2p.Peer, rw p2p.MsgReadWriter, logger *zap.Logger) *Protocol {
+	if logger == nil {
+		logger = zap.NewNop()
+	}
+
+	peer := NewPeer(host, p2pPeer, rw, logger.Named("waku/peer"))
+
 	return &Protocol{
 		host:   host,
 		peer:   peer,

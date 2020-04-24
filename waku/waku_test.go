@@ -1057,52 +1057,7 @@ func TestTopicInterest(t *testing.T) {
 
 }
 
-func TestSendP2PDirect(t *testing.T) {
-	InitSingleTest()
-
-	w := New(nil, nil)
-	_ = w.SetMinimumPoW(0.0000001, false)           // nolint: errcheck
-	defer w.SetMinimumPoW(DefaultMinimumPoW, false) // nolint: errcheck
-	_ = w.Start(nil)                                // nolint: errcheck
-	defer w.Stop()                                  // nolint: errcheck
-
-	rwStub := &rwP2PMessagesStub{}
-	peerW := v0.NewPeer(w, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), rwStub, nil)
-	w.peers[peerW] = struct{}{}
-
-	params, err := generateMessageParams()
-	if err != nil {
-		t.Fatalf("failed generateMessageParams with seed %d: %s.", seed, err)
-	}
-	params.TTL = 1
-
-	msg, err := types.NewSentMessage(params)
-	if err != nil {
-		t.Fatalf("failed to create new message with seed %d: %s.", seed, err)
-	}
-	env, err := msg.Wrap(params, time.Now())
-	if err != nil {
-		t.Fatalf("failed Wrap with seed %d: %s.", seed, err)
-	}
-
-	err = w.SendP2PDirect(peerW.ID(), env, env, env)
-	if err != nil {
-		t.Fatalf("failed to send envelope with seed %d: %s.", seed, err)
-	}
-	if len(rwStub.messages) != 1 {
-		t.Fatalf("invalid number of messages sent to peer: %d, expected 1", len(rwStub.messages))
-	}
-	var envelopes []*types.Envelope
-	if err := rwStub.messages[0].Decode(&envelopes); err != nil {
-		t.Fatalf("failed to decode envelopes: %s", err)
-	}
-	if len(envelopes) != 3 {
-		t.Fatalf("invalid number of envelopes in a message: %d, expected 3", len(envelopes))
-	}
-	rwStub.messages = nil
-	envelopes = nil
-}
-
+// TODO: Fix this to use protcol instead of stubbing
 func TestHandleP2PMessageCode(t *testing.T) {
 	InitSingleTest()
 
@@ -1135,12 +1090,10 @@ func TestHandleP2PMessageCode(t *testing.T) {
 	rwStub := &rwP2PMessagesStub{}
 	rwStub.payload = []interface{}{[]*types.Envelope{env}}
 
-	peer := v0.NewPeer(nil, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), nil, nil)
-	peer.SetPeerTrusted(true)
+	protocol := v0.NewProtocol(w, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), rwStub, w.logger)
+	protocol.SetPeerTrusted(true)
 
-	protocol := v0.NewProtocol(w, peer, rwStub, w.logger)
-
-	err = w.runMessageLoop(protocol)
+	err = protocol.Start()
 	if err != nil && err != errRWStub {
 		t.Fatalf("failed run message loop: %s", err)
 	}
@@ -1151,10 +1104,12 @@ func TestHandleP2PMessageCode(t *testing.T) {
 	// read a batch of envelopes
 	rwStub = &rwP2PMessagesStub{}
 	rwStub.payload = []interface{}{[]*types.Envelope{env, env, env}}
+	protocol.Stop()
 
-	protocol = v0.NewProtocol(w, peer, rwStub, w.logger)
+	protocol = v0.NewProtocol(w, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), rwStub, w.logger)
+	protocol.SetPeerTrusted(true)
 
-	err = w.runMessageLoop(protocol)
+	err = protocol.Start()
 	if err != nil && err != errRWStub {
 		t.Fatalf("failed run message loop: %s", err)
 	}
@@ -1163,6 +1118,7 @@ func TestHandleP2PMessageCode(t *testing.T) {
 			t.Fatalf("received envelope %s while expected %s", e.Hash, env.Hash())
 		}
 	}
+	protocol.Stop()
 }
 
 var errRWStub = errors.New("no more messages")
@@ -1601,7 +1557,7 @@ func TestRequestSentEventWithExpiry(t *testing.T) {
 	p := p2p.NewPeer(enode.ID{1}, "1", []p2p.Cap{{"shh", 6}})
 	rw := discardPipe()
 	defer rw.Close()
-	w.peers[v0.NewPeer(w, p, rw, nil)] = struct{}{}
+	w.peers[v0.NewProtocol(w, p, rw, nil)] = struct{}{}
 	events := make(chan types.EnvelopeEvent, 1)
 	sub := w.SubscribeEnvelopeEvents(events)
 	defer sub.Unsubscribe()
@@ -1645,7 +1601,7 @@ func TestSendMessagesRequest(t *testing.T) {
 		p := p2p.NewPeer(enode.ID{0x01}, "peer01", nil)
 		rw1, rw2 := p2p.MsgPipe()
 		w := New(nil, nil)
-		w.peers[v0.NewPeer(w, p, rw1, nil)] = struct{}{}
+		w.peers[v0.NewProtocol(w, p, rw1, nil)] = struct{}{}
 
 		go func() {
 			err := w.SendMessagesRequest(p.ID().Bytes(), validMessagesRequest)
@@ -1695,29 +1651,38 @@ func TestRateLimiterIntegration(t *testing.T) {
 }
 
 func TestMailserverCompletionEvent(t *testing.T) {
-	w := New(nil, nil)
-	require.NoError(t, w.Start(nil))
-	defer w.Stop() // nolint: errcheck
+	w1 := New(nil, nil)
+	require.NoError(t, w1.Start(nil))
+	defer w1.Stop() // nolint: errcheck
 
 	rw1, rw2 := p2p.MsgPipe()
-	peer := v0.NewPeer(w, p2p.NewPeer(enode.ID{1}, "1", nil), rw1, nil)
-	peer.SetPeerTrusted(true)
-	w.peers[peer] = struct{}{}
+	protocol1 := v0.NewProtocol(w1, p2p.NewPeer(enode.ID{1}, "1", nil), rw1, nil)
+	protocol1.SetPeerTrusted(true)
+	w1.peers[protocol1] = struct{}{}
+
+	w2 := New(nil, nil)
+	require.NoError(t, w2.Start(nil))
+	defer w2.Stop() // nolint: errcheck
+
+	protocol2 := v0.NewProtocol(w2, p2p.NewPeer(enode.ID{1}, "1", nil), rw2, nil)
+	protocol2.SetPeerTrusted(true)
+	w2.peers[protocol2] = struct{}{}
 
 	events := make(chan types.EnvelopeEvent)
-	sub := w.SubscribeEnvelopeEvents(events)
+	sub := w1.SubscribeEnvelopeEvents(events)
 	defer sub.Unsubscribe()
 
 	envelopes := []*types.Envelope{{Data: []byte{1}}, {Data: []byte{2}}}
 	go func() {
+
+		require.NoError(t, protocol2.Start())
 		require.NoError(t, p2p.Send(rw2, p2pMessageCode, envelopes))
 		require.NoError(t, p2p.Send(rw2, p2pRequestCompleteCode, [100]byte{})) // 2 hashes + cursor size
 		rw2.Close()
 	}()
 
-	protocol := v0.NewProtocol(w, peer, rw1, w.logger)
-
-	require.EqualError(t, w.runMessageLoop(protocol), "p2p: read or write on closed message pipe")
+	require.NoError(t, protocol1.Start(), "p2p: read or write on closed message pipe")
+	require.EqualError(t, protocol1.Run(), "p2p: read or write on closed message pipe")
 
 	after := time.After(2 * time.Second)
 	count := 0
