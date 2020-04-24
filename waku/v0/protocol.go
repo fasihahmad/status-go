@@ -17,8 +17,7 @@ import (
 )
 
 type Protocol struct {
-	them   types.WakuPeer
-	us     types.WakuPeer
+	peer   types.WakuPeer
 	host   types.WakuHost
 	rw     p2p.MsgReadWriter
 	logger *zap.Logger
@@ -28,37 +27,37 @@ func (p *Protocol) HandlePacket(packet p2p.Msg) error {
 	switch packet.Code {
 	case messagesCode:
 		if err := p.HandleMessagesCode(packet); err != nil {
-			p.logger.Warn("failed to handle messagesCode message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			p.logger.Warn("failed to handle messagesCode message, peer will be disconnected", zap.Binary("peer", p.peer.ID()), zap.Error(err))
 			return err
 		}
 	case messageResponseCode:
 		if err := p.HandleMessageResponseCode(packet); err != nil {
-			p.logger.Warn("failed to handle messageResponseCode message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			p.logger.Warn("failed to handle messageResponseCode message, peer will be disconnected", zap.Binary("peer", p.peer.ID()), zap.Error(err))
 			return err
 		}
 	case batchAcknowledgedCode:
 		if err := p.HandleBatchAcknowledgeCode(packet); err != nil {
-			p.logger.Warn("failed to handle batchAcknowledgedCode message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			p.logger.Warn("failed to handle batchAcknowledgedCode message, peer will be disconnected", zap.Binary("peer", p.peer.ID()), zap.Error(err))
 			return err
 		}
 	case statusUpdateCode:
 		if err := p.HandleStatusUpdateCode(packet); err != nil {
-			p.logger.Warn("failed to decode status update message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			p.logger.Warn("failed to decode status update message, peer will be disconnected", zap.Binary("peer", p.peer.ID()), zap.Error(err))
 			return err
 		}
 	case p2pMessageCode:
 		if err := p.HandleP2PMessageCode(packet); err != nil {
-			p.logger.Warn("failed to decode direct message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			p.logger.Warn("failed to decode direct message, peer will be disconnected", zap.Binary("peer", p.peer.ID()), zap.Error(err))
 			return err
 		}
 	case p2pRequestCode:
 		if err := p.HandleP2PRequestCode(packet); err != nil {
-			p.logger.Warn("failed to decode p2p request message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			p.logger.Warn("failed to decode p2p request message, peer will be disconnected", zap.Binary("peer", p.peer.ID()), zap.Error(err))
 			return err
 		}
 	case p2pRequestCompleteCode:
 		if err := p.HandleP2PRequestCompleteCode(packet); err != nil {
-			p.logger.Warn("failed to decode p2p request complete message, peer will be disconnected", zap.Binary("peer", p.them.ID()), zap.Error(err))
+			p.logger.Warn("failed to decode p2p request complete message, peer will be disconnected", zap.Binary("peer", p.peer.ID()), zap.Error(err))
 			return err
 		}
 	default:
@@ -70,23 +69,18 @@ func (p *Protocol) HandlePacket(packet p2p.Msg) error {
 	return nil
 }
 
-func (p *Protocol) Them() types.WakuPeer {
-	return p.them
-}
-
-func (p *Protocol) Us() types.WakuPeer {
-	return p.us
+func (p *Protocol) Peer() types.WakuPeer {
+	return p.peer
 }
 
 func (p *Protocol) RW() p2p.MsgReadWriter {
 	return p.rw
 }
 
-func NewProtocol(host types.WakuHost, us types.WakuPeer, them types.WakuPeer, rw p2p.MsgReadWriter, logger *zap.Logger) *Protocol {
+func NewProtocol(host types.WakuHost, peer types.WakuPeer, rw p2p.MsgReadWriter, logger *zap.Logger) *Protocol {
 	return &Protocol{
 		host:   host,
-		us:     us,
-		them:   them,
+		peer:   peer,
 		logger: logger,
 		rw:     rw,
 	}
@@ -160,7 +154,7 @@ func (p *Protocol) HandleP2PRequestCode(packet p2p.Msg) error {
 	if errReq == nil {
 		return p.host.OnMessagesRequest(request, p)
 	}
-	p.logger.Info("failed to decode p2p request message", zap.Binary("peer", p.them.ID()), zap.Error(errReq))
+	p.logger.Info("failed to decode p2p request message", zap.Binary("peer", p.peer.ID()), zap.Error(errReq))
 
 	return errors.New("invalid p2p request message")
 }
@@ -174,7 +168,7 @@ func (p *Protocol) HandleBatchAcknowledgeCode(packet p2p.Msg) error {
 }
 
 func (p *Protocol) HandleStatusUpdateCode(packet p2p.Msg) error {
-	return p.them.HandleStatusUpdateCode(packet)
+	return p.peer.HandleStatusUpdateCode(packet)
 }
 
 func (p *Protocol) HandleP2PMessageCode(packet p2p.Msg) error {
@@ -182,7 +176,7 @@ func (p *Protocol) HandleP2PMessageCode(packet p2p.Msg) error {
 	// this message is not supposed to be forwarded to other peers, and
 	// therefore might not satisfy the PoW, expiry and other requirements.
 	// these messages are only accepted from the trusted peer.
-	if !p.them.Trusted() {
+	if !p.peer.Trusted() {
 		return nil
 	}
 
@@ -199,7 +193,7 @@ func (p *Protocol) HandleP2PMessageCode(packet p2p.Msg) error {
 }
 
 func (p *Protocol) HandleP2PRequestCompleteCode(packet p2p.Msg) error {
-	if !p.them.Trusted() {
+	if !p.peer.Trusted() {
 		return nil
 	}
 

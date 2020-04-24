@@ -1138,7 +1138,7 @@ func TestHandleP2PMessageCode(t *testing.T) {
 	peer := v0.NewPeer(nil, p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}), nil, nil)
 	peer.SetPeerTrusted(true)
 
-	protocol := v0.NewProtocol(w, nil, peer, rwStub, w.logger)
+	protocol := v0.NewProtocol(w, peer, rwStub, w.logger)
 
 	err = w.runMessageLoop(protocol)
 	if err != nil && err != errRWStub {
@@ -1152,7 +1152,7 @@ func TestHandleP2PMessageCode(t *testing.T) {
 	rwStub = &rwP2PMessagesStub{}
 	rwStub.payload = []interface{}{[]*types.Envelope{env, env, env}}
 
-	protocol = v0.NewProtocol(w, nil, peer, rwStub, w.logger)
+	protocol = v0.NewProtocol(w, peer, rwStub, w.logger)
 
 	err = w.runMessageLoop(protocol)
 	if err != nil && err != errRWStub {
@@ -1715,7 +1715,7 @@ func TestMailserverCompletionEvent(t *testing.T) {
 		rw2.Close()
 	}()
 
-	protocol := v0.NewProtocol(w, nil, peer, rw1, w.logger)
+	protocol := v0.NewProtocol(w, peer, rw1, w.logger)
 
 	require.EqualError(t, w.runMessageLoop(protocol), "p2p: read or write on closed message pipe")
 

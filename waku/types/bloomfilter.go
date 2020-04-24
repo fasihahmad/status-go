@@ -27,3 +27,11 @@ func BloomFilterMatch(filter, sample []byte) bool {
 
 	return true
 }
+
+func MakeFullNodeBloom() []byte {
+	bloom := make([]byte, BloomFilterSize)
+	for i := 0; i < BloomFilterSize; i++ {
+		bloom[i] = 0xFF
+	}
+	return bloom
+}

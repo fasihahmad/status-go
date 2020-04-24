@@ -1048,7 +1048,7 @@ func (w *Waku) HandlePeer(peer *p2p.Peer, rw p2p.MsgReadWriter) error {
 	wakuPeer.Start()
 	defer wakuPeer.Stop()
 
-	protocol := v0.NewProtocol(w, nil, wakuPeer, rw, w.logger)
+	protocol := v0.NewProtocol(w, wakuPeer, rw, w.logger)
 
 	if w.rateLimiter != nil {
 		runLoop := func(out p2p.MsgReadWriter) error { return w.runMessageLoop(protocol) }
@@ -1067,18 +1067,18 @@ func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol types.Protoc
 			_, isTimeSyncError := err.(types.TimeSyncError)
 			if !isTimeSyncError {
 				trouble = true
-				w.logger.Info("invalid envelope received", zap.Binary("peer", protocol.Them().ID()), zap.Error(err))
+				w.logger.Info("invalid envelope received", zap.Binary("peer", protocol.Peer().ID()), zap.Error(err))
 			}
 			envelopeErrors = append(envelopeErrors, types.ErrorToEnvelopeError(env.Hash(), err))
 		} else if cached {
-			protocol.Them().Mark(env)
+			protocol.Peer().Mark(env)
 		}
 
 		w.envelopeFeed.Send(types.EnvelopeEvent{
 			Event: types.EventEnvelopeReceived,
 			Topic: env.Topic,
 			Hash:  env.Hash(),
-			Peer:  protocol.Them().EnodeID(),
+			Peer:  protocol.Peer().EnodeID(),
 		})
 		types.EnvelopesValidatedCounter.Inc()
 	}
@@ -1091,7 +1091,7 @@ func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol types.Protoc
 
 // runMessageLoop reads and processes inbound messages directly to merge into client-global state.
 func (w *Waku) runMessageLoop(protocol types.Protocol) error {
-	p := protocol.Them()
+	p := protocol.Peer()
 	rw := protocol.RW()
 	logger := w.logger.Named("runMessageLoop")
 	peerID := p.EnodeID()
@@ -1128,12 +1128,12 @@ func (w *Waku) Mailserver() bool {
 }
 
 func (w *Waku) OnMessagesRequest(request types.MessagesRequest, p types.Protocol) error {
-	w.mailServer.Deliver(p.Them().ID(), request)
+	w.mailServer.Deliver(p.Peer().ID(), request)
 	return nil
 }
 
 func (w *Waku) OnP2PRequestCompleted(payload []byte, p types.Protocol) error {
-	event, err := CreateMailServerEvent(p.Them().EnodeID(), payload)
+	event, err := CreateMailServerEvent(p.Peer().EnodeID(), payload)
 	if err != nil {
 		return fmt.Errorf("invalid p2p request complete payload: %v", err)
 	}
@@ -1146,7 +1146,7 @@ func (w *Waku) OnMessagesResponse(response types.MessagesResponse, p types.Proto
 	w.envelopeFeed.Send(types.EnvelopeEvent{
 		Batch: response.Hash,
 		Event: types.EventBatchAcknowledged,
-		Peer:  p.Them().EnodeID(),
+		Peer:  p.Peer().EnodeID(),
 		Data:  response.Errors,
 	})
 
@@ -1157,7 +1157,7 @@ func (w *Waku) OnBatchAcknowledged(batchHash common.Hash, p types.Protocol) erro
 	w.envelopeFeed.Send(types.EnvelopeEvent{
 		Batch: batchHash,
 		Event: types.EventBatchAcknowledged,
-		Peer:  p.Them().EnodeID(),
+		Peer:  p.Peer().EnodeID(),
 	})
 	return nil
 }

@@ -51,7 +51,6 @@ type Peer struct {
 
 func Init() {
 	initRLPKeyFields()
-
 }
 
 // newPeer creates a new waku peer object, but does not run the handshake itself.
@@ -109,7 +108,6 @@ func (p *Peer) RequestHistoricMessages(envelope *types.Envelope) error {
 
 func (p *Peer) SendMessagesRequest(request types.MessagesRequest) error {
 	return p2p.Send(p.ws, p2pRequestCode, request)
-
 }
 
 func (p *Peer) SendHistoricMessageResponse(payload []byte) error {

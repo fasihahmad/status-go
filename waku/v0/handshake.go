@@ -156,7 +156,7 @@ loop:
 		// a higher index.
 		idx, ok := keyFieldIdx[key]
 		if !ok {
-			// Read the rest of the list items and dump them.
+			// Read the rest of the list items and dump peer.
 			_, err := s.Raw()
 			if err != nil {
 				return fmt.Errorf("failed to read the value of key %s: %v", key, err)
