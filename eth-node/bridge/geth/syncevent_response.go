@@ -5,7 +5,7 @@ import (
 	"github.com/status-im/status-go/whisper/v6"
 )
 
-// NewGethSyncEventResponseWrapper returns a types.SyncEventResponse object that mimics Geth's SyncEventResponse
+// NewGethSyncEventResponseWrapper returns a common.SyncEventResponse object that mimics Geth's SyncEventResponse
 func NewGethSyncEventResponseWrapper(syncEventResponse whisper.SyncEventResponse) types.SyncEventResponse {
 	return types.SyncEventResponse{
 		Cursor: syncEventResponse.Cursor,

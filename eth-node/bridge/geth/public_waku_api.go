@@ -7,14 +7,14 @@ import (
 
 	"github.com/status-im/status-go/eth-node/types"
 	"github.com/status-im/status-go/waku"
-	wakutypes "github.com/status-im/status-go/waku/types"
+	wakucommon "github.com/status-im/status-go/waku/common"
 )
 
 type gethPublicWakuAPIWrapper struct {
 	api *waku.PublicWakuAPI
 }
 
-// NewGethPublicWakuAPIWrapper returns an object that wraps Geth's PublicWakuAPI in a types interface
+// NewGethPublicWakuAPIWrapper returns an object that wraps Geth's PublicWakuAPI in a common interface
 func NewGethPublicWakuAPIWrapper(api *waku.PublicWakuAPI) types.PublicWakuAPI {
 	if api == nil {
 		panic("PublicWakuAPI cannot be nil")
@@ -43,9 +43,9 @@ func (w *gethPublicWakuAPIWrapper) DeleteKeyPair(ctx context.Context, key string
 // NewMessageFilter creates a new filter that can be used to poll for
 // (new) messages that satisfy the given criteria.
 func (w *gethPublicWakuAPIWrapper) NewMessageFilter(req types.Criteria) (string, error) {
-	topics := make([]wakutypes.TopicType, len(req.Topics))
+	topics := make([]wakucommon.TopicType, len(req.Topics))
 	for index, tt := range req.Topics {
-		topics[index] = wakutypes.TopicType(tt)
+		topics[index] = wakucommon.TopicType(tt)
 	}
 
 	criteria := waku.Criteria{
@@ -93,7 +93,7 @@ func (w *gethPublicWakuAPIWrapper) Post(ctx context.Context, req types.NewMessag
 		PublicKey:  req.PublicKey,
 		Sig:        req.SigID, // Sig is really a SigID
 		TTL:        req.TTL,
-		Topic:      wakutypes.TopicType(req.Topic),
+		Topic:      wakucommon.TopicType(req.Topic),
 		Payload:    req.Payload,
 		Padding:    req.Padding,
 		PowTime:    req.PowTime,

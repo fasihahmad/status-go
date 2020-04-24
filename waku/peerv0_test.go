@@ -29,7 +29,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
@@ -37,7 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/nat"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/status-im/status-go/waku/types"
+	"github.com/status-im/status-go/waku/common"
 	"github.com/status-im/status-go/waku/v0"
 )
 
@@ -96,8 +96,8 @@ var result TestData
 var nodes [NumNodes]*TestNode
 var sharedKey = hexutil.MustDecode("0x03ca634cae0d49acb401d8a4c6b6fe8c55b70d115bf400769cc1400f3258cd31")
 var wrongKey = hexutil.MustDecode("0xf91156714d7ec88d3edc1c652c2181dbb3044e8771c683f3b30d33c12b986b11")
-var sharedTopic = types.TopicType{0xF, 0x1, 0x2, 0}
-var wrongTopic = types.TopicType{0, 0, 0, 0}
+var sharedTopic = common.TopicType{0xF, 0x1, 0x2, 0}
+var wrongTopic = common.TopicType{0, 0, 0, 0}
 var expectedMessage = []byte("per aspera ad astra")
 var unexpectedMessage = []byte("per rectum ad astra")
 var masterBloomFilter []byte
@@ -149,7 +149,7 @@ func resetParams(t *testing.T) {
 	_ = nodes[0].waku.SetMinimumPoW(masterPow, true)
 
 	// change bloom for all nodes
-	masterBloomFilter = types.TopicToBloom(sharedTopic)
+	masterBloomFilter = common.TopicToBloom(sharedTopic)
 	for i := 0; i < NumNodes; i++ {
 		_ = nodes[i].waku.SetBloomFilter(masterBloomFilter)
 	}
@@ -158,19 +158,19 @@ func resetParams(t *testing.T) {
 }
 
 func initBloom(t *testing.T) {
-	masterBloomFilter = make([]byte, types.BloomFilterSize)
+	masterBloomFilter = make([]byte, common.BloomFilterSize)
 	_, err := mrand.Read(masterBloomFilter) // nolint: gosec
 	if err != nil {
 		t.Fatalf("rand failed: %s.", err)
 	}
 
-	msgBloom := types.TopicToBloom(sharedTopic)
+	msgBloom := common.TopicToBloom(sharedTopic)
 	masterBloomFilter = addBloom(masterBloomFilter, msgBloom)
 	for i := 0; i < 32; i++ {
 		masterBloomFilter[i] = 0xFF
 	}
 
-	if !types.BloomFilterMatch(masterBloomFilter, msgBloom) {
+	if !common.BloomFilterMatch(masterBloomFilter, msgBloom) {
 		t.Fatalf("bloom mismatch on initBloom.")
 	}
 }
@@ -182,7 +182,7 @@ func initializeBloomFilterMode(t *testing.T) {
 
 	for i := 0; i < NumNodes; i++ {
 		var node TestNode
-		b := make([]byte, types.BloomFilterSize)
+		b := make([]byte, common.BloomFilterSize)
 		copy(b, masterBloomFilter)
 		config := DefaultConfig
 		config.BloomFilterMode = true
@@ -193,9 +193,9 @@ func initializeBloomFilterMode(t *testing.T) {
 			t.Fatalf("bloom mismatch on init.")
 		}
 		_ = node.waku.Start(nil)
-		topics := make([]types.TopicType, 0)
+		topics := make([]common.TopicType, 0)
 		topics = append(topics, sharedTopic)
-		f := types.Filter{KeySym: sharedKey, Messages: types.NewMemoryMessageStore()}
+		f := common.Filter{KeySym: sharedKey, Messages: common.NewMemoryMessageStore()}
 		f.Topics = [][]byte{topics[0][:]}
 		node.filerID, err = node.waku.Subscribe(&f)
 		if err != nil {
@@ -205,7 +205,7 @@ func initializeBloomFilterMode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed convert the key: %s.", keys[i])
 		}
-		name := common.MakeName("waku-go", "2.0")
+		name := gethcommon.MakeName("waku-go", "2.0")
 
 		node.server = &p2p.Server{
 			Config: p2p.Config{
@@ -300,7 +300,7 @@ func checkPropagation(t *testing.T, includingNodeZero bool) {
 	t.Fatalf("Test was not complete (%d round): timeout %d seconds. nodes=%v", round, iterations*cycle/1000, nodes)
 }
 
-func validateMail(t *testing.T, index int, mail []*types.ReceivedMessage) {
+func validateMail(t *testing.T, index int, mail []*common.ReceivedMessage) {
 	var cnt int
 	for _, m := range mail {
 		if bytes.Equal(m.Payload, expectedMessage) {
@@ -373,7 +373,7 @@ func sendMsg(t *testing.T, expected bool, id int) {
 		return
 	}
 
-	opt := types.MessageParams{KeySym: sharedKey, Topic: sharedTopic, Payload: expectedMessage, PoW: 0.00000001, WorkTime: 1}
+	opt := common.MessageParams{KeySym: sharedKey, Topic: sharedTopic, Payload: expectedMessage, PoW: 0.00000001, WorkTime: 1}
 	if !expected {
 		opt.KeySym = wrongKey
 		opt.Topic = wrongTopic
@@ -381,7 +381,7 @@ func sendMsg(t *testing.T, expected bool, id int) {
 		opt.Payload[0] = byte(id)
 	}
 
-	msg, err := types.NewSentMessage(&opt)
+	msg, err := common.NewSentMessage(&opt)
 	if err != nil {
 		t.Fatalf("failed to create new message with seed %d: %s.", seed, err)
 	}
@@ -405,7 +405,7 @@ func TestPeerBasic(t *testing.T) {
 	}
 
 	params.PoW = 0.001
-	msg, err := types.NewSentMessage(params)
+	msg, err := common.NewSentMessage(params)
 	if err != nil {
 		t.Fatalf("failed to create new message with seed %d: %s.", seed, err)
 	}
@@ -579,7 +579,7 @@ func TestTwoLightPeerHandshakeError(t *testing.T) {
 	p1 := v0.NewProtocol(
 		&w1,
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
-		&rwStub{[]interface{}{v0.Version, uint64(123), make([]byte, types.BloomFilterSize), true}},
+		&rwStub{[]interface{}{v0.Version, uint64(123), make([]byte, common.BloomFilterSize), true}},
 		nil,
 	)
 	err := p1.Start()

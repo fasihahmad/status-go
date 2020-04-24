@@ -568,7 +568,7 @@ func (b *nimbusStatusBackend) GetNodesFromContract(rpcEndpoint string, contractA
 	// 	return response, err
 	// }
 
-	// contract, err := registry.NewNodes(types.HexToAddress(contractAddress), ethclient)
+	// contract, err := registry.NewNodes(common.HexToAddress(contractAddress), ethclient)
 	// if err != nil {
 	// 	return response, err
 	// }
@@ -641,7 +641,7 @@ func (b *nimbusStatusBackend) SignMessage(rpcParams personal.SignParams) (types.
 	panic("SignMessage")
 	// verifiedAccount, err := b.getVerifiedWalletAccount(rpcParams.Address, rpcParams.Password)
 	// if err != nil {
-	// 	return types.Bytes{}, err
+	// 	return common.Bytes{}, err
 	// }
 	// return b.personalAPI.Sign(rpcParams, verifiedAccount)
 }
@@ -918,7 +918,7 @@ func (b *nimbusStatusBackend) injectAccountIntoServices() error {
 // 		return err
 // 	}
 
-// 	allAddresses := make([]types.Address, len(watchAddresses)+1)
+// 	allAddresses := make([]common.Address, len(watchAddresses)+1)
 // 	allAddresses[0] = mainAccountAddress
 // 	copy(allAddresses[1:], watchAddresses)
 // 	return wallet.StartReactor(

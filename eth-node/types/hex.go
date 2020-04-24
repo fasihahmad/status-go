@@ -34,7 +34,7 @@ func (b *HexBytes) UnmarshalJSON(input []byte) error {
 
 // UnmarshalFixedUnprefixedText decodes the input as a string with optional 0x prefix. The
 // length of out determines the required input length. This function is commonly used to
-// implement the UnmarshalText method for fixed-size types.
+// implement the UnmarshalText method for fixed-size common.
 func UnmarshalFixedUnprefixedText(typname string, input, out []byte) error {
 	raw, err := checkText(input, false)
 	if err != nil {

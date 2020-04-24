@@ -54,9 +54,9 @@ func NewNimbusPublicAPI(s *NimbusService) *NimbusPublicAPI {
 // 	var resp MessagesResponse
 
 // 	shh := api.service.w
-// 	events := make(chan types.EnvelopeEvent, 10)
+// 	events := make(chan common.EnvelopeEvent, 10)
 // 	var (
-// 		requestID types.HexBytes
+// 		requestID common.HexBytes
 // 		err       error
 // 		retries   int
 // 	)
@@ -71,7 +71,7 @@ func NewNimbusPublicAPI(s *NimbusService) *NimbusPublicAPI {
 // 			sub.Unsubscribe()
 // 			return resp, err
 // 		}
-// 		mailServerResp, err := waitForExpiredOrCompleted(types.BytesToHash(requestID), events, timeout)
+// 		mailServerResp, err := waitForExpiredOrCompleted(common.BytesToHash(requestID), events, timeout)
 // 		sub.Unsubscribe()
 // 		if err == nil {
 // 			resp.Cursor = hex.EncodeToString(mailServerResp.Cursor)
@@ -84,12 +84,12 @@ func NewNimbusPublicAPI(s *NimbusService) *NimbusPublicAPI {
 // 	return resp, fmt.Errorf("failed to request messages after %d retries", retries)
 // }
 
-// func waitForExpiredOrCompleted(requestID types.Hash, events chan types.EnvelopeEvent, timeout time.Duration) (*types.MailServerResponse, error) {
+// func waitForExpiredOrCompleted(requestID common.Hash, events chan common.EnvelopeEvent, timeout time.Duration) (*common.MailServerResponse, error) {
 // 	expired := fmt.Errorf("request %x expired", requestID)
 // 	after := time.NewTimer(timeout)
 // 	defer after.Stop()
 // 	for {
-// 		var ev types.EnvelopeEvent
+// 		var ev common.EnvelopeEvent
 // 		select {
 // 		case ev = <-events:
 // 		case <-after.C:
@@ -99,20 +99,20 @@ func NewNimbusPublicAPI(s *NimbusService) *NimbusPublicAPI {
 // 			continue
 // 		}
 // 		switch ev.Event {
-// 		case types.EventMailServerRequestCompleted:
-// 			data, ok := ev.Data.(*types.MailServerResponse)
+// 		case common.EventMailServerRequestCompleted:
+// 			data, ok := ev.Data.(*common.MailServerResponse)
 // 			if ok {
 // 				return data, nil
 // 			}
 // 			return nil, errors.New("invalid event data type")
-// 		case types.EventMailServerRequestExpired:
+// 		case common.EventMailServerRequestExpired:
 // 			return nil, expired
 // 		}
 // 	}
 // }
 
 // // RequestMessages sends a request for historic messages to a MailServer.
-// func (api *NimbusPublicAPI) RequestMessages(_ context.Context, r MessagesRequest) (types.HexBytes, error) {
+// func (api *NimbusPublicAPI) RequestMessages(_ context.Context, r MessagesRequest) (common.HexBytes, error) {
 // 	api.log.Info("RequestMessages", "request", r)
 // 	shh := api.service.w
 // 	now := api.service.w.GetCurrentTime()
@@ -178,20 +178,20 @@ func NewNimbusPublicAPI(s *NimbusService) *NimbusPublicAPI {
 
 // // createSyncMailRequest creates SyncMailRequest. It uses a full bloom filter
 // // if no topics are given.
-// func createSyncMailRequest(r SyncMessagesRequest) (types.SyncMailRequest, error) {
+// func createSyncMailRequest(r SyncMessagesRequest) (common.SyncMailRequest, error) {
 // 	var bloom []byte
 // 	if len(r.Topics) > 0 {
 // 		bloom = topicsToBloom(r.Topics...)
 // 	} else {
-// 		bloom = types.MakeFullNodeBloom()
+// 		bloom = common.MakeFullNodeBloom()
 // 	}
 
 // 	cursor, err := hex.DecodeString(r.Cursor)
 // 	if err != nil {
-// 		return types.SyncMailRequest{}, err
+// 		return common.SyncMailRequest{}, err
 // 	}
 
-// 	return types.SyncMailRequest{
+// 	return common.SyncMailRequest{
 // 		Lower:  r.From,
 // 		Upper:  r.To,
 // 		Bloom:  bloom,
@@ -200,7 +200,7 @@ func NewNimbusPublicAPI(s *NimbusService) *NimbusPublicAPI {
 // 	}, nil
 // }
 
-// func createSyncMessagesResponse(r types.SyncEventResponse) SyncMessagesResponse {
+// func createSyncMessagesResponse(r common.SyncEventResponse) SyncMessagesResponse {
 // 	return SyncMessagesResponse{
 // 		Cursor: hex.EncodeToString(r.Cursor),
 // 		Error:  r.Error,
@@ -297,7 +297,7 @@ func (api *NimbusPublicAPI) ConfirmJoiningGroup(ctx context.Context, chatID stri
 	return api.service.messenger.ConfirmJoiningGroup(ctx, chatID)
 }
 
-// func (api *NimbusPublicAPI) requestMessagesUsingPayload(request db.HistoryRequest, peer, symkeyID string, payload []byte, force bool, timeout time.Duration, topics []types.TopicType) (hash types.Hash, err error) {
+// func (api *NimbusPublicAPI) requestMessagesUsingPayload(request db.HistoryRequest, peer, symkeyID string, payload []byte, force bool, timeout time.Duration, topics []common.TopicType) (hash common.Hash, err error) {
 // 	shh := api.service.w
 // 	now := api.service.w.GetCurrentTime()
 
@@ -361,7 +361,7 @@ func (api *NimbusPublicAPI) ConfirmJoiningGroup(ctx context.Context, chatID stri
 // // - Topic
 // // - Duration in nanoseconds. Will be used to determine starting time for history request.
 // // After that status-go will guarantee that request for this topic and date will be performed.
-// func (api *NimbusPublicAPI) InitiateHistoryRequests(parent context.Context, request InitiateHistoryRequestParams) (rst []types.HexBytes, err error) {
+// func (api *NimbusPublicAPI) InitiateHistoryRequests(parent context.Context, request InitiateHistoryRequestParams) (rst []common.HexBytes, err error) {
 // 	tx := api.service.storage.NewTx()
 // 	defer func() {
 // 		if err == nil {
@@ -375,7 +375,7 @@ func (api *NimbusPublicAPI) ConfirmJoiningGroup(ctx context.Context, chatID stri
 // 	}
 // 	var (
 // 		payload []byte
-// 		hash    types.Hash
+// 		hash    common.Hash
 // 	)
 // 	for i := range requests {
 // 		req := requests[i]
@@ -398,7 +398,7 @@ func (api *NimbusPublicAPI) ConfirmJoiningGroup(ctx context.Context, chatID stri
 // func (api *NimbusPublicAPI) CompleteRequest(parent context.Context, hex string) (err error) {
 // 	tx := api.service.storage.NewTx()
 // 	ctx := NewContextFromService(parent, api.service, tx)
-// 	err = api.service.historyUpdates.UpdateFinishedRequest(ctx, types.HexToHash(hex))
+// 	err = api.service.historyUpdates.UpdateFinishedRequest(ctx, common.HexToHash(hex))
 // 	if err == nil {
 // 		return tx.Commit()
 // 	}
@@ -567,7 +567,7 @@ func (api *NimbusPublicAPI) SyncDevices(ctx context.Context, name, picture strin
 // 	nodeID *ecdsa.PrivateKey,
 // 	pow float64,
 // 	now time.Time,
-// ) (types.Envelope, error) {
+// ) (common.Envelope, error) {
 // 	params := whisper.MessageParams{
 // 		PoW:      pow,
 // 		Payload:  payload,
@@ -623,19 +623,19 @@ func (api *NimbusPublicAPI) SyncDevices(ctx context.Context, name, picture strin
 // 		return topicsToBloom(r.Topics...)
 // 	}
 
-// 	return types.TopicToBloom(r.Topic)
+// 	return common.TopicToBloom(r.Topic)
 // }
 
-// func topicsToBloom(topics ...types.TopicType) []byte {
+// func topicsToBloom(topics ...common.TopicType) []byte {
 // 	i := new(big.Int)
 // 	for _, topic := range topics {
-// 		bloom := types.TopicToBloom(topic)
+// 		bloom := common.TopicToBloom(topic)
 // 		i.Or(i, new(big.Int).SetBytes(bloom[:]))
 // 	}
 
-// 	combined := make([]byte, types.BloomFilterSize)
+// 	combined := make([]byte, common.BloomFilterSize)
 // 	data := i.Bytes()
-// 	copy(combined[types.BloomFilterSize-len(data):], data[:])
+// 	copy(combined[common.BloomFilterSize-len(data):], data[:])
 
 // 	return combined
 // }

@@ -10,7 +10,7 @@ type gethSubscriptionWrapper struct {
 	subscription event.Subscription
 }
 
-// NewGethSubscriptionWrapper returns an object that wraps Geth's Subscription in a types interface
+// NewGethSubscriptionWrapper returns an object that wraps Geth's Subscription in a common interface
 func NewGethSubscriptionWrapper(subscription event.Subscription) types.Subscription {
 	if subscription == nil {
 		panic("subscription cannot be nil")

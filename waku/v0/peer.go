@@ -15,17 +15,17 @@ import (
 
 	mapset "github.com/deckarep/golang-set"
 
-	"github.com/ethereum/go-ethereum/common"
+	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/p2p"
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/status-im/status-go/waku/types"
+	"github.com/status-im/status-go/waku/common"
 )
 
 type Peer struct {
-	host    types.WakuHost
+	host    common.WakuHost
 	rw      p2p.MsgReadWriter
 	p2pPeer *p2p.Peer
 	logger  *zap.Logger
@@ -41,7 +41,7 @@ type Peer struct {
 	// topicInterestMu is to allow thread safe access to
 	// the map of topic interests
 	topicInterestMu sync.Mutex
-	topicInterest   map[types.TopicType]bool
+	topicInterest   map[common.TopicType]bool
 	// fullNode is used to indicate that the node will be accepting any
 	// envelope. The opposite is an "empty node" , which is when
 	// a bloom filter is all 0s or topic interest is an empty map (not nil).
@@ -49,7 +49,7 @@ type Peer struct {
 	fullNode             bool
 	confirmationsEnabled bool
 	rateLimitsMu         sync.Mutex
-	rateLimits           types.RateLimits
+	rateLimits           common.RateLimits
 
 	known mapset.Set // Messages already known by the peer to avoid wasting bandwidth
 }
@@ -77,7 +77,7 @@ func (p *Peer) NotifyAboutBloomFilterChange(bloom []byte) error {
 	return p2p.Send(p.rw, StatusUpdateCode, StatusOptions{BloomFilterExport: bloom})
 }
 
-func (p *Peer) NotifyAboutTopicInterestChange(topics []types.TopicType) error {
+func (p *Peer) NotifyAboutTopicInterestChange(topics []common.TopicType) error {
 	return p2p.Send(p.rw, StatusUpdateCode, StatusOptions{TopicInterestExport: topics})
 }
 
@@ -85,11 +85,11 @@ func (p *Peer) SetPeerTrusted(trusted bool) {
 	p.trusted = trusted
 }
 
-func (p *Peer) RequestHistoricMessages(envelope *types.Envelope) error {
+func (p *Peer) RequestHistoricMessages(envelope *common.Envelope) error {
 	return p2p.Send(p.rw, P2PRequestCode, envelope)
 }
 
-func (p *Peer) SendMessagesRequest(request types.MessagesRequest) error {
+func (p *Peer) SendMessagesRequest(request common.MessagesRequest) error {
 	return p2p.Send(p.rw, P2PRequestCode, request)
 }
 func (p *Peer) SendHistoricMessageResponse(payload []byte) error {
@@ -102,7 +102,7 @@ func (p *Peer) SendHistoricMessageResponse(payload []byte) error {
 
 }
 
-func (p *Peer) SendP2PMessages(envelopes []*types.Envelope) error {
+func (p *Peer) SendP2PMessages(envelopes []*common.Envelope) error {
 	return p2p.Send(p.rw, P2PMessageCode, envelopes)
 }
 
@@ -189,7 +189,7 @@ func (p *Peer) HandlePacket(packet p2p.Msg) error {
 			return err
 		}
 	default:
-		// New message types might be implemented in the future versions of Waku.
+		// New message common might be implemented in the future versions of Waku.
 		// For forward compatibility, just ignore.
 		p.logger.Debug("ignored packet with message code", zap.Uint64("code", packet.Code))
 	}
@@ -201,7 +201,7 @@ func Init() {
 	initRLPKeyFields()
 }
 
-func NewProtocol(host types.WakuHost, p2pPeer *p2p.Peer, rw p2p.MsgReadWriter, logger *zap.Logger) *Peer {
+func NewProtocol(host common.WakuHost, p2pPeer *p2p.Peer, rw p2p.MsgReadWriter, logger *zap.Logger) *Peer {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -215,7 +215,7 @@ func NewProtocol(host types.WakuHost, p2pPeer *p2p.Peer, rw p2p.MsgReadWriter, l
 		powRequirement: 0.0,
 		known:          mapset.NewSet(),
 		quit:           make(chan struct{}),
-		bloomFilter:    types.MakeFullNodeBloom(),
+		bloomFilter:    common.MakeFullNodeBloom(),
 		fullNode:       true,
 	}
 }
@@ -224,13 +224,13 @@ func (p *Peer) HandleMessagesCode(packet p2p.Msg) error {
 	// decode the contained envelopes
 	data, err := ioutil.ReadAll(packet.Payload)
 	if err != nil {
-		types.EnvelopesRejectedCounter.WithLabelValues("failed_read").Inc()
+		common.EnvelopesRejectedCounter.WithLabelValues("failed_read").Inc()
 		return fmt.Errorf("failed to read packet payload: %v", err)
 	}
 
-	var envelopes []*types.Envelope
+	var envelopes []*common.Envelope
 	if err := rlp.DecodeBytes(data, &envelopes); err != nil {
-		types.EnvelopesRejectedCounter.WithLabelValues("invalid_data").Inc()
+		common.EnvelopesRejectedCounter.WithLabelValues("invalid_data").Inc()
 		return fmt.Errorf("invalid payload: %v", err)
 	}
 
@@ -246,7 +246,7 @@ func (p *Peer) HandleMessagesCode(packet p2p.Msg) error {
 func (p *Peer) HandleMessageResponseCode(packet p2p.Msg) error {
 	var resp MultiVersionResponse
 	if err := packet.Decode(&resp); err != nil {
-		types.EnvelopesRejectedCounter.WithLabelValues("failed_read").Inc()
+		common.EnvelopesRejectedCounter.WithLabelValues("failed_read").Inc()
 		return fmt.Errorf("invalid response message: %v", err)
 	}
 	if resp.Version != 1 {
@@ -256,7 +256,7 @@ func (p *Peer) HandleMessageResponseCode(packet p2p.Msg) error {
 
 	response, err := resp.DecodeResponse1()
 	if err != nil {
-		types.EnvelopesRejectedCounter.WithLabelValues("invalid_data").Inc()
+		common.EnvelopesRejectedCounter.WithLabelValues("invalid_data").Inc()
 		return fmt.Errorf("failed to decode response message: %v", err)
 	}
 
@@ -283,7 +283,7 @@ func (p *Peer) HandleP2PRequestCode(packet p2p.Msg) error {
 		return fmt.Errorf("invalid p2p request message: %v", err)
 	}
 
-	var request types.MessagesRequest
+	var request common.MessagesRequest
 	errReq := packet.Decode(&request)
 	if errReq == nil {
 		return p.host.OnMessagesRequest(request, p)
@@ -294,7 +294,7 @@ func (p *Peer) HandleP2PRequestCode(packet p2p.Msg) error {
 }
 
 func (p *Peer) HandleBatchAcknowledgeCode(packet p2p.Msg) error {
-	var batchHash common.Hash
+	var batchHash gethcommon.Hash
 	if err := packet.Decode(&batchHash); err != nil {
 		return fmt.Errorf("invalid batch ack message: %v", err)
 	}
@@ -306,7 +306,7 @@ func (p *Peer) HandleStatusUpdateCode(packet p2p.Msg) error {
 	err := packet.Decode(&StatusOptions)
 	if err != nil {
 		p.logger.Error("failed to decode status-options", zap.Error(err))
-		types.EnvelopesRejectedCounter.WithLabelValues("invalid_settings_changed").Inc()
+		common.EnvelopesRejectedCounter.WithLabelValues("invalid_settings_changed").Inc()
 		return err
 	}
 
@@ -324,7 +324,7 @@ func (p *Peer) HandleP2PMessageCode(packet p2p.Msg) error {
 	}
 
 	var (
-		envelopes []*types.Envelope
+		envelopes []*common.Envelope
 		err       error
 	)
 
@@ -348,7 +348,7 @@ func (p *Peer) HandleP2PRequestCompleteCode(packet p2p.Msg) error {
 }
 
 // sendConfirmation sends MessageResponseCode and BatchAcknowledgedCode messages.
-func (p *Peer) sendConfirmation(data []byte, envelopeErrors []types.EnvelopeError) (err error) {
+func (p *Peer) sendConfirmation(data []byte, envelopeErrors []common.EnvelopeError) (err error) {
 	batchHash := crypto.Keccak256Hash(data)
 	err = p2p.Send(p.rw, MessageResponseCode, NewMessagesResponse(batchHash, envelopeErrors))
 	if err != nil {
@@ -412,8 +412,8 @@ func (p *Peer) handshake() error {
 // and expiration.
 func (p *Peer) update() {
 	// Start the tickers for the updates
-	expire := time.NewTicker(types.ExpirationCycle)
-	transmit := time.NewTicker(types.TransmissionCycle)
+	expire := time.NewTicker(common.ExpirationCycle)
+	transmit := time.NewTicker(common.TransmissionCycle)
 
 	// Loop and transmit until termination is requested
 	for {
@@ -455,7 +455,7 @@ func (p *Peer) setOptions(peerOptions StatusOptions) error {
 		// Validate and save peer's bloom filters.
 		bloom := peerOptions.BloomFilterExport
 		bloomSize := len(bloom)
-		if bloomSize != 0 && bloomSize != types.BloomFilterSize {
+		if bloomSize != 0 && bloomSize != common.BloomFilterSize {
 			return fmt.Errorf("p [%x] sent bad status message: wrong bloom filter size %d", p.ID(), bloomSize)
 		}
 		p.setBloomFilter(bloom)
@@ -480,10 +480,10 @@ func (p *Peer) setOptions(peerOptions StatusOptions) error {
 // expire iterates over all the known envelopes in the host and removes all
 // expired (unknown) ones from the known list.
 func (p *Peer) expire() {
-	unmark := make(map[common.Hash]struct{})
+	unmark := make(map[gethcommon.Hash]struct{})
 	p.known.Each(func(v interface{}) bool {
-		if !p.host.IsEnvelopeCached(v.(common.Hash)) {
-			unmark[v.(common.Hash)] = struct{}{}
+		if !p.host.IsEnvelopeCached(v.(gethcommon.Hash)) {
+			unmark[v.(gethcommon.Hash)] = struct{}{}
 		}
 		return true
 	})
@@ -497,7 +497,7 @@ func (p *Peer) expire() {
 // ones over the network.
 func (p *Peer) broadcast() error {
 	envelopes := p.host.Envelopes()
-	bundle := make([]*types.Envelope, 0, len(envelopes))
+	bundle := make([]*common.Envelope, 0, len(envelopes))
 	for _, envelope := range envelopes {
 		if !p.Marked(envelope) && envelope.PoW() >= p.powRequirement && p.topicOrBloomMatch(envelope) {
 			bundle = append(bundle, envelope)
@@ -517,8 +517,8 @@ func (p *Peer) broadcast() error {
 	// mark envelopes only if they were successfully sent
 	for _, e := range bundle {
 		p.Mark(e)
-		event := types.EnvelopeEvent{
-			Event: types.EventEnvelopeSent,
+		event := common.EnvelopeEvent{
+			Event: common.EventEnvelopeSent,
 			Hash:  e.Hash(),
 			Peer:  p.EnodeID(),
 		}
@@ -535,21 +535,21 @@ func (p *Peer) setBloomFilter(bloom []byte) {
 	p.bloomMu.Lock()
 	defer p.bloomMu.Unlock()
 	p.bloomFilter = bloom
-	p.fullNode = types.IsFullNode(bloom)
+	p.fullNode = common.IsFullNode(bloom)
 	if p.fullNode && p.bloomFilter == nil {
-		p.bloomFilter = types.MakeFullNodeBloom()
+		p.bloomFilter = common.MakeFullNodeBloom()
 	}
 	p.topicInterest = nil
 }
 
-func (p *Peer) setTopicInterest(topicInterest []types.TopicType) {
+func (p *Peer) setTopicInterest(topicInterest []common.TopicType) {
 	p.topicInterestMu.Lock()
 	defer p.topicInterestMu.Unlock()
 	if topicInterest == nil {
 		p.topicInterest = nil
 		return
 	}
-	p.topicInterest = make(map[types.TopicType]bool)
+	p.topicInterest = make(map[common.TopicType]bool)
 	for _, topic := range topicInterest {
 		p.topicInterest[topic] = true
 	}
@@ -557,14 +557,14 @@ func (p *Peer) setTopicInterest(topicInterest []types.TopicType) {
 	p.bloomFilter = nil
 }
 
-func (p *Peer) setRateLimits(r types.RateLimits) {
+func (p *Peer) setRateLimits(r common.RateLimits) {
 	p.rateLimitsMu.Lock()
 	p.rateLimits = r
 	p.rateLimitsMu.Unlock()
 }
 
 // Marked checks if an envelope is already known to the remote peer.
-func (p *Peer) Marked(envelope *types.Envelope) bool {
+func (p *Peer) Marked(envelope *common.Envelope) bool {
 	return p.known.Contains(envelope.Hash())
 }
 
@@ -573,7 +573,7 @@ func (p *Peer) Marked(envelope *types.Envelope) bool {
 // If the bloom-filter is nil, or full, the node is considered a full-node
 // and any envelope will be accepted. An empty topic-interest (but not nil)
 // signals that we are not interested in any envelope.
-func (p *Peer) topicOrBloomMatch(env *types.Envelope) bool {
+func (p *Peer) topicOrBloomMatch(env *common.Envelope) bool {
 	p.topicInterestMu.Lock()
 	topicInterestMode := p.topicInterest != nil
 	p.topicInterestMu.Unlock()
@@ -584,7 +584,7 @@ func (p *Peer) topicOrBloomMatch(env *types.Envelope) bool {
 	return p.bloomMatch(env)
 }
 
-func (p *Peer) topicInterestMatch(env *types.Envelope) bool {
+func (p *Peer) topicInterestMatch(env *common.Envelope) bool {
 	p.topicInterestMu.Lock()
 	defer p.topicInterestMu.Unlock()
 
@@ -596,14 +596,14 @@ func (p *Peer) topicInterestMatch(env *types.Envelope) bool {
 }
 
 // mark marks an envelope known to the peer so that it won't be sent back.
-func (p *Peer) Mark(envelope *types.Envelope) {
+func (p *Peer) Mark(envelope *common.Envelope) {
 	p.known.Add(envelope.Hash())
 }
 
-func (p *Peer) bloomMatch(env *types.Envelope) bool {
+func (p *Peer) bloomMatch(env *common.Envelope) bool {
 	p.bloomMu.Lock()
 	defer p.bloomMu.Unlock()
-	return p.fullNode || types.BloomFilterMatch(p.bloomFilter, env.Bloom())
+	return p.fullNode || common.BloomFilterMatch(p.bloomFilter, env.Bloom())
 }
 
 func (p *Peer) BloomFilter() []byte {

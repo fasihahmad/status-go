@@ -44,6 +44,6 @@ func makeKeyStore(manager *accounts.Manager) (types.KeyStore, error) {
 	return gethbridge.WrapKeyStore(keyStore), nil
 }
 
-// func makeKeyStore(_ string) (types.KeyStore, error) {
+// func makeKeyStore(_ string) (common.KeyStore, error) {
 // 	return nimbusbridge.WrapKeyStore(), nil
 // }

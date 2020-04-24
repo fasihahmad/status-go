@@ -1,4 +1,4 @@
-// Code extracted from vendor/github.com/ethereum/go-ethereum/common/types.go
+// Code extracted from vendor/github.com/ethereum/go-ethereum/common/common.go
 
 package types
 
@@ -89,7 +89,7 @@ func BytesToHash(b []byte) Hash {
 
 // UnmarshalFixedJSON decodes the input as a string with 0x prefix. The length of out
 // determines the required input length. This function is commonly used to implement the
-// UnmarshalJSON method for fixed-size types.
+// UnmarshalJSON method for fixed-size common.
 func UnmarshalFixedJSON(typ reflect.Type, input, out []byte) error {
 	if !isString(input) {
 		return errNonString(typ)
@@ -99,7 +99,7 @@ func UnmarshalFixedJSON(typ reflect.Type, input, out []byte) error {
 
 // UnmarshalFixedText decodes the input as a string with 0x prefix. The length of out
 // determines the required input length. This function is commonly used to implement the
-// UnmarshalText method for fixed-size types.
+// UnmarshalText method for fixed-size common.
 func UnmarshalFixedText(typname string, input, out []byte) error {
 	raw, err := checkText(input, true)
 	if err != nil {

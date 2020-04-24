@@ -2,12 +2,11 @@ package gethbridge
 
 import (
 	"github.com/status-im/status-go/eth-node/types"
-	"github.com/status-im/status-go/waku"
-	wakutypes "github.com/status-im/status-go/waku/types"
+	waku "github.com/status-im/status-go/waku/common"
 	"github.com/status-im/status-go/whisper/v6"
 )
 
-// NewWhisperEnvelopeErrorWrapper returns a types.EnvelopeError object that mimics Geth's EnvelopeError
+// NewWhisperEnvelopeErrorWrapper returns a common.EnvelopeError object that mimics Geth's EnvelopeError
 func NewWhisperEnvelopeErrorWrapper(envelopeError *whisper.EnvelopeError) *types.EnvelopeError {
 	if envelopeError == nil {
 		panic("envelopeError should not be nil")
@@ -20,8 +19,8 @@ func NewWhisperEnvelopeErrorWrapper(envelopeError *whisper.EnvelopeError) *types
 	}
 }
 
-// NewWakuEnvelopeErrorWrapper returns a types.EnvelopeError object that mimics Geth's EnvelopeError
-func NewWakuEnvelopeErrorWrapper(envelopeError *wakutypes.EnvelopeError) *types.EnvelopeError {
+// NewWakuEnvelopeErrorWrapper returns a common.EnvelopeError object that mimics Geth's EnvelopeError
+func NewWakuEnvelopeErrorWrapper(envelopeError *waku.EnvelopeError) *types.EnvelopeError {
 	if envelopeError == nil {
 		panic("envelopeError should not be nil")
 	}

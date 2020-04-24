@@ -28,7 +28,7 @@ type PeerEventsSubscriber interface {
 	SubscribeEvents(chan *p2p.PeerEvent) event.Subscription
 }
 
-// EnvelopeEventSubscriber interface to subscribe for types.EnvelopeEvent's.
+// EnvelopeEventSubscriber interface to subscribe for common.EnvelopeEvent's.
 type EnvelopeEventSubscriber interface {
 	SubscribeEnvelopeEvents(chan<- types.EnvelopeEvent) types.Subscription
 }

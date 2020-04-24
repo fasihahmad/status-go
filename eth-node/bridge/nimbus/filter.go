@@ -24,7 +24,7 @@ type nimbusFilterWrapper struct {
 	own    bool
 }
 
-// NewNimbusFilterWrapper returns an object that wraps Nimbus's Filter in a types interface
+// NewNimbusFilterWrapper returns an object that wraps Nimbus's Filter in a common interface
 func NewNimbusFilterWrapper(f *C.filter_options, id string, own bool) types.Filter {
 	wrapper := &nimbusFilterWrapper{
 		filter: f,

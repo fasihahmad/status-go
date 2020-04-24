@@ -6,14 +6,14 @@ import (
 
 	"github.com/status-im/status-go/eth-node/types"
 	"github.com/status-im/status-go/waku"
-	wakutypes "github.com/status-im/status-go/waku/types"
+	wakucommon "github.com/status-im/status-go/waku/common"
 )
 
 type gethWakuWrapper struct {
 	waku *waku.Waku
 }
 
-// NewGethWakuWrapper returns an object that wraps Geth's Waku in a types interface
+// NewGethWakuWrapper returns an object that wraps Geth's Waku in a common interface
 func NewGethWakuWrapper(w *waku.Waku) types.Waku {
 	if w == nil {
 		panic("waku cannot be nil")
@@ -57,7 +57,7 @@ func (w *gethWakuWrapper) SetTimeSource(timesource func() time.Time) {
 }
 
 func (w *gethWakuWrapper) SubscribeEnvelopeEvents(eventsProxy chan<- types.EnvelopeEvent) types.Subscription {
-	events := make(chan wakutypes.EnvelopeEvent, 100) // must be buffered to prevent blocking whisper
+	events := make(chan wakucommon.EnvelopeEvent, 100) // must be buffered to prevent blocking whisper
 	go func() {
 		for e := range events {
 			eventsProxy <- *NewWakuEnvelopeEventWrapper(&e)
@@ -140,18 +140,18 @@ func (w *gethWakuWrapper) Unsubscribe(id string) error {
 }
 
 func (w *gethWakuWrapper) createFilterWrapper(id string, keyAsym *ecdsa.PrivateKey, keySym []byte, pow float64, topics [][]byte) (types.Filter, error) {
-	return NewWakuFilterWrapper(&wakutypes.Filter{
+	return NewWakuFilterWrapper(&wakucommon.Filter{
 		KeyAsym:  keyAsym,
 		KeySym:   keySym,
 		PoW:      pow,
 		AllowP2P: true,
 		Topics:   topics,
-		Messages: wakutypes.NewMemoryMessageStore(),
+		Messages: wakucommon.NewMemoryMessageStore(),
 	}, id), nil
 }
 
 func (w *gethWakuWrapper) SendMessagesRequest(peerID []byte, r types.MessagesRequest) error {
-	return w.waku.SendMessagesRequest(peerID, wakutypes.MessagesRequest{
+	return w.waku.SendMessagesRequest(peerID, wakucommon.MessagesRequest{
 		ID:     r.ID,
 		From:   r.From,
 		To:     r.To,
@@ -167,16 +167,16 @@ func (w *gethWakuWrapper) SendMessagesRequest(peerID []byte, r types.MessagesReq
 // which are not supposed to be forwarded any further.
 // The whisper protocol is agnostic of the format and contents of envelope.
 func (w *gethWakuWrapper) RequestHistoricMessagesWithTimeout(peerID []byte, envelope types.Envelope, timeout time.Duration) error {
-	return w.waku.RequestHistoricMessagesWithTimeout(peerID, envelope.Unwrap().(*wakutypes.Envelope), timeout)
+	return w.waku.RequestHistoricMessagesWithTimeout(peerID, envelope.Unwrap().(*wakucommon.Envelope), timeout)
 }
 
 type wakuFilterWrapper struct {
-	filter *wakutypes.Filter
+	filter *wakucommon.Filter
 	id     string
 }
 
-// NewWakuFilterWrapper returns an object that wraps Geth's Filter in a types interface
-func NewWakuFilterWrapper(f *wakutypes.Filter, id string) types.Filter {
+// NewWakuFilterWrapper returns an object that wraps Geth's Filter in a common interface
+func NewWakuFilterWrapper(f *wakucommon.Filter, id string) types.Filter {
 	if f.Messages == nil {
 		panic("Messages should not be nil")
 	}
@@ -188,7 +188,7 @@ func NewWakuFilterWrapper(f *wakutypes.Filter, id string) types.Filter {
 }
 
 // GetWakuFilterFrom retrieves the underlying whisper Filter struct from a wrapped Filter interface
-func GetWakuFilterFrom(f types.Filter) *wakutypes.Filter {
+func GetWakuFilterFrom(f types.Filter) *wakucommon.Filter {
 	return f.(*wakuFilterWrapper).filter
 }
 

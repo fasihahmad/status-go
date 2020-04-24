@@ -13,7 +13,7 @@ type gethPublicWhisperAPIWrapper struct {
 	publicWhisperAPI *whisper.PublicWhisperAPI
 }
 
-// NewGethPublicWhisperAPIWrapper returns an object that wraps Geth's PublicWhisperAPI in a types interface
+// NewGethPublicWhisperAPIWrapper returns an object that wraps Geth's PublicWhisperAPI in a common interface
 func NewGethPublicWhisperAPIWrapper(publicWhisperAPI *whisper.PublicWhisperAPI) types.PublicWhisperAPI {
 	if publicWhisperAPI == nil {
 		panic("publicWhisperAPI cannot be nil")

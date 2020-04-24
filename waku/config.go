@@ -19,7 +19,7 @@
 package waku
 
 import (
-	"github.com/status-im/status-go/waku/types"
+	"github.com/status-im/status-go/waku/common"
 )
 
 // Config represents the configuration state of a waku node.
@@ -34,7 +34,7 @@ type Config struct {
 }
 
 var DefaultConfig = Config{
-	MaxMessageSize:           types.DefaultMaxMessageSize,
-	MinimumAcceptedPoW:       types.DefaultMinimumPoW,
+	MaxMessageSize:           common.DefaultMaxMessageSize,
+	MinimumAcceptedPoW:       common.DefaultMinimumPoW,
 	RestrictLightClientsConn: true,
 }

@@ -10,7 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rlp"
 
-	"github.com/status-im/status-go/waku/types"
+	"github.com/status-im/status-go/waku/common"
 )
 
 // statusOptionKey is a current type used in StatusOptions as a key.
@@ -29,12 +29,12 @@ var (
 // In the case of RLP, options should be serialized to an array of tuples
 // where the first item is a field name and the second is a RLP-serialized value.
 type StatusOptions struct {
-	PoWRequirementExport       *uint64           `rlp:"key=0"` // RLP does not support float64 natively
-	BloomFilterExport          []byte            `rlp:"key=1"`
-	LightNodeEnabledExport     *bool             `rlp:"key=2"`
-	ConfirmationsEnabledExport *bool             `rlp:"key=3"`
-	RateLimitsExport           *types.RateLimits `rlp:"key=4"`
-	TopicInterestExport        []types.TopicType `rlp:"key=5"`
+	PoWRequirementExport       *uint64            `rlp:"key=0"` // RLP does not support float64 natively
+	BloomFilterExport          []byte             `rlp:"key=1"`
+	LightNodeEnabledExport     *bool              `rlp:"key=2"`
+	ConfirmationsEnabledExport *bool              `rlp:"key=3"`
+	RateLimitsExport           *common.RateLimits `rlp:"key=4"`
+	TopicInterestExport        []common.TopicType `rlp:"key=5"`
 }
 
 // initFLPKeyFields initialises the values of `idxFieldKey` and `keyFieldIdx`
@@ -85,11 +85,11 @@ func (o StatusOptions) WithDefaults() StatusOptions {
 	}
 
 	if o.RateLimitsExport == nil {
-		o.RateLimitsExport = &types.RateLimits{}
+		o.RateLimitsExport = &common.RateLimits{}
 	}
 
 	if o.BloomFilterExport == nil {
-		o.BloomFilterExport = types.MakeFullNodeBloom()
+		o.BloomFilterExport = common.MakeFullNodeBloom()
 	}
 
 	return o
@@ -197,10 +197,10 @@ func (o StatusOptions) PoWRequirement() *uint64 {
 	return o.PoWRequirementExport
 }
 
-func (o StatusOptions) RateLimits() *types.RateLimits {
+func (o StatusOptions) RateLimits() *common.RateLimits {
 	return o.RateLimitsExport
 }
 
-func (o StatusOptions) TopicInterest() []types.TopicType {
+func (o StatusOptions) TopicInterest() []common.TopicType {
 	return o.TopicInterestExport
 }

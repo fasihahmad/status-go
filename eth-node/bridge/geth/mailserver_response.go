@@ -6,7 +6,7 @@ import (
 	"github.com/status-im/status-go/whisper/v6"
 )
 
-// NewWhisperMailServerResponseWrapper returns a types.MailServerResponse object that mimics Geth's MailServerResponse
+// NewWhisperMailServerResponseWrapper returns a common.MailServerResponse object that mimics Geth's MailServerResponse
 func NewWhisperMailServerResponseWrapper(mailServerResponse *whisper.MailServerResponse) *types.MailServerResponse {
 	if mailServerResponse == nil {
 		panic("mailServerResponse should not be nil")
@@ -19,7 +19,7 @@ func NewWhisperMailServerResponseWrapper(mailServerResponse *whisper.MailServerR
 	}
 }
 
-// NewWakuMailServerResponseWrapper returns a types.MailServerResponse object that mimics Geth's MailServerResponse
+// NewWakuMailServerResponseWrapper returns a common.MailServerResponse object that mimics Geth's MailServerResponse
 func NewWakuMailServerResponseWrapper(mailServerResponse *waku.MailServerResponse) *types.MailServerResponse {
 	if mailServerResponse == nil {
 		panic("mailServerResponse should not be nil")

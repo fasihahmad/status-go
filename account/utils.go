@@ -84,7 +84,7 @@ func (k *SelectedExtKey) Hex() string {
 	return k.Address.Hex()
 }
 
-// ParseAccountString parses hex encoded string and returns is as types.Account.
+// ParseAccountString parses hex encoded string and returns is as common.Account.
 func ParseAccountString(account string) (types.Account, error) {
 	// valid address, convert to account
 	if types.IsHexAddress(account) {
@@ -94,7 +94,7 @@ func ParseAccountString(account string) (types.Account, error) {
 	return types.Account{}, ErrInvalidAccountAddressOrKey
 }
 
-// FromAddress converts account address from string to types.Address.
+// FromAddress converts account address from string to common.Address.
 // The function is useful to format "From" field of send transaction struct.
 func FromAddress(accountAddress string) types.Address {
 	from, err := ParseAccountString(accountAddress)

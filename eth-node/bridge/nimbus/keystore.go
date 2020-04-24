@@ -35,7 +35,7 @@ var (
 type nimbusKeyStoreAdapter struct {
 }
 
-// WrapKeyStore creates a types.KeyStore wrapper over the singleton Nimbus node
+// WrapKeyStore creates a common.KeyStore wrapper over the singleton Nimbus node
 func WrapKeyStore() types.KeyStore {
 	return &nimbusKeyStoreAdapter{}
 }

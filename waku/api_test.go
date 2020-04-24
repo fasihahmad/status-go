@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/status-im/status-go/waku/types"
+	"github.com/status-im/status-go/waku/common"
 )
 
 func TestMultipleTopicCopyInNewMessageFilter(t *testing.T) {
@@ -43,7 +43,7 @@ func TestMultipleTopicCopyInNewMessageFilter(t *testing.T) {
 
 	crit := Criteria{
 		SymKeyID: keyID,
-		Topics:   []types.TopicType{types.TopicType(t1), types.TopicType(t2)},
+		Topics:   []common.TopicType{common.TopicType(t1), common.TopicType(t2)},
 	}
 
 	_, err = api.NewMessageFilter(crit)
@@ -52,7 +52,7 @@ func TestMultipleTopicCopyInNewMessageFilter(t *testing.T) {
 	}
 
 	found := false
-	candidates := w.filters.GetWatchersByTopic(types.TopicType(t1))
+	candidates := w.filters.GetWatchersByTopic(common.TopicType(t1))
 	for _, f := range candidates {
 		if len(f.Topics) == 2 {
 			if bytes.Equal(f.Topics[0], t1[:]) && bytes.Equal(f.Topics[1], t2[:]) {

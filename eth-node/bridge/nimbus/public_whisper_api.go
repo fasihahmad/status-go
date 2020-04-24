@@ -29,7 +29,7 @@ type nimbusPublicWhisperAPIWrapper struct {
 	routineQueue     *RoutineQueue
 }
 
-// NewNimbusPublicWhisperAPIWrapper returns an object that wraps Nimbus's PublicWhisperAPI in a types interface
+// NewNimbusPublicWhisperAPIWrapper returns an object that wraps Nimbus's PublicWhisperAPI in a common interface
 func NewNimbusPublicWhisperAPIWrapper(filterMessagesMu *sync.Mutex, filterMessages *map[string]*list.List, routineQueue *RoutineQueue) types.PublicWhisperAPI {
 	return &nimbusPublicWhisperAPIWrapper{
 		filterMessagesMu: filterMessagesMu,

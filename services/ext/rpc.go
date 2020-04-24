@@ -1,4 +1,4 @@
-// TODO: These types should be defined using protobuf, but protoc can only emit []byte instead of types.HexBytes,
+// TODO: These common should be defined using protobuf, but protoc can only emit []byte instead of common.HexBytes,
 // which causes issues when marshaling to JSON on the react side. Let's do that once the chat protocol is moved to the go repo.
 
 package ext

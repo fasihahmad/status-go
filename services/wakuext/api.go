@@ -11,7 +11,7 @@ import (
 	gethbridge "github.com/status-im/status-go/eth-node/bridge/geth"
 	"github.com/status-im/status-go/eth-node/types"
 	"github.com/status-im/status-go/services/ext"
-	waku "github.com/status-im/status-go/waku/types"
+	waku "github.com/status-im/status-go/waku/common"
 )
 
 const (

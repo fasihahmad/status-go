@@ -54,7 +54,7 @@ func makeEnvelop(
 	pow float64,
 	now time.Time,
 ) (types.Envelope, error) {
-	// TODO: replace with an types.Envelope creator passed to the API struct
+	// TODO: replace with an common.Envelope creator passed to the API struct
 	params := whisper.MessageParams{
 		PoW:      pow,
 		Payload:  payload,

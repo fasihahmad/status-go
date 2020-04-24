@@ -17,7 +17,7 @@ type gethKeyStoreAdapter struct {
 	keystore *keystore.KeyStore
 }
 
-// WrapKeyStore creates a types.KeyStore wrapper over a keystore.KeyStore object
+// WrapKeyStore creates a common.KeyStore wrapper over a keystore.KeyStore object
 func WrapKeyStore(keystore *keystore.KeyStore) types.KeyStore {
 	return &gethKeyStoreAdapter{keystore: keystore}
 }

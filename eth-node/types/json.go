@@ -62,7 +62,7 @@ func (b *HexBytes) UnmarshalText(input []byte) error {
 
 // UnmarshalFixedHexText decodes the input as a string with 0x prefix. The length of out
 // determines the required input length. This function is commonly used to implement the
-// UnmarshalText method for fixed-size types.
+// UnmarshalText method for fixed-size common.
 func UnmarshalFixedHexText(typname string, input, out []byte) error {
 	raw, err := checkText(input, true)
 	if err != nil {

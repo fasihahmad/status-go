@@ -21,22 +21,22 @@ package v0
 import (
 	"testing"
 
-	"github.com/status-im/status-go/waku/types"
+	"github.com/status-im/status-go/waku/common"
 )
 
-var sharedTopic = types.TopicType{0xF, 0x1, 0x2, 0}
-var wrongTopic = types.TopicType{0, 0, 0, 0}
+var sharedTopic = common.TopicType{0xF, 0x1, 0x2, 0}
+var wrongTopic = common.TopicType{0, 0, 0, 0}
 
 //two generic waku node handshake. one don't send light flag
 func TestTopicOrBloomMatch(t *testing.T) {
 	p := Peer{}
-	p.setTopicInterest([]types.TopicType{sharedTopic})
-	envelope := &types.Envelope{Topic: sharedTopic}
+	p.setTopicInterest([]common.TopicType{sharedTopic})
+	envelope := &common.Envelope{Topic: sharedTopic}
 	if !p.topicOrBloomMatch(envelope) {
 		t.Fatal("envelope should match")
 	}
 
-	badEnvelope := &types.Envelope{Topic: wrongTopic}
+	badEnvelope := &common.Envelope{Topic: wrongTopic}
 	if p.topicOrBloomMatch(badEnvelope) {
 		t.Fatal("envelope should not match")
 	}
@@ -47,13 +47,13 @@ func TestTopicOrBloomMatchFullNode(t *testing.T) {
 	p := Peer{}
 	// Set as full node
 	p.fullNode = true
-	p.setTopicInterest([]types.TopicType{sharedTopic})
-	envelope := &types.Envelope{Topic: sharedTopic}
+	p.setTopicInterest([]common.TopicType{sharedTopic})
+	envelope := &common.Envelope{Topic: sharedTopic}
 	if !p.topicOrBloomMatch(envelope) {
 		t.Fatal("envelope should match")
 	}
 
-	badEnvelope := &types.Envelope{Topic: wrongTopic}
+	badEnvelope := &common.Envelope{Topic: wrongTopic}
 	if p.topicOrBloomMatch(badEnvelope) {
 		t.Fatal("envelope should not match")
 	}

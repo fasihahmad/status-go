@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/status-im/status-go/waku"
-	wakutypes "github.com/status-im/status-go/waku/types"
+	wakucommon "github.com/status-im/status-go/waku/common"
 	"github.com/status-im/status-go/whisper/v6"
 )
 
@@ -21,8 +21,8 @@ type Bridge struct {
 
 	whisperIn  chan *whisper.Envelope
 	whisperOut chan *whisper.Envelope
-	wakuIn     chan *wakutypes.Envelope
-	wakuOut    chan *wakutypes.Envelope
+	wakuIn     chan *wakucommon.Envelope
+	wakuOut    chan *wakucommon.Envelope
 }
 
 func New(shh *whisper.Whisper, w *waku.Waku, logger *zap.Logger) *Bridge {
@@ -32,8 +32,8 @@ func New(shh *whisper.Whisper, w *waku.Waku, logger *zap.Logger) *Bridge {
 		logger:     logger,
 		whisperOut: make(chan *whisper.Envelope),
 		whisperIn:  make(chan *whisper.Envelope),
-		wakuIn:     make(chan *wakutypes.Envelope),
-		wakuOut:    make(chan *wakutypes.Envelope),
+		wakuIn:     make(chan *wakucommon.Envelope),
+		wakuOut:    make(chan *wakucommon.Envelope),
 	}
 }
 
@@ -49,7 +49,7 @@ type bridgeWaku struct {
 	*Bridge
 }
 
-func (b *bridgeWaku) Pipe() (<-chan *wakutypes.Envelope, chan<- *wakutypes.Envelope) {
+func (b *bridgeWaku) Pipe() (<-chan *wakucommon.Envelope, chan<- *wakucommon.Envelope) {
 	return b.wakuOut, b.wakuIn
 }
 
@@ -85,7 +85,7 @@ func (b *Bridge) Start() {
 			case <-b.cancel:
 				return
 			case env := <-b.whisperIn:
-				wakuEnvelope := (*wakutypes.Envelope)(unsafe.Pointer(env)) // nolint: gosec
+				wakuEnvelope := (*wakucommon.Envelope)(unsafe.Pointer(env)) // nolint: gosec
 				b.logger.Debug(
 					"received waku envelope from whisper",
 					zap.ByteString("hash", wakuEnvelope.Hash().Bytes()),

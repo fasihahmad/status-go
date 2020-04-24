@@ -24,7 +24,7 @@ const (
 	EnvelopeSent
 )
 
-// EnvelopeEventsHandler used for two different event types.
+// EnvelopeEventsHandler used for two different event common.
 type EnvelopeEventsHandler interface {
 	EnvelopeSent([][]byte)
 	EnvelopeExpired([][]byte, error)

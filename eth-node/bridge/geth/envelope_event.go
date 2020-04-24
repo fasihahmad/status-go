@@ -3,11 +3,11 @@ package gethbridge
 import (
 	"github.com/status-im/status-go/eth-node/types"
 	"github.com/status-im/status-go/waku"
-	wakutypes "github.com/status-im/status-go/waku/types"
+	wakucommon "github.com/status-im/status-go/waku/common"
 	"github.com/status-im/status-go/whisper/v6"
 )
 
-// NewWhisperEnvelopeEventWrapper returns a types.EnvelopeEvent object that mimics Geth's EnvelopeEvent
+// NewWhisperEnvelopeEventWrapper returns a common.EnvelopeEvent object that mimics Geth's EnvelopeEvent
 func NewWhisperEnvelopeEventWrapper(envelopeEvent *whisper.EnvelopeEvent) *types.EnvelopeEvent {
 	if envelopeEvent == nil {
 		panic("envelopeEvent should not be nil")
@@ -34,15 +34,15 @@ func NewWhisperEnvelopeEventWrapper(envelopeEvent *whisper.EnvelopeEvent) *types
 	}
 }
 
-// NewWakuEnvelopeEventWrapper returns a types.EnvelopeEvent object that mimics Geth's EnvelopeEvent
-func NewWakuEnvelopeEventWrapper(envelopeEvent *wakutypes.EnvelopeEvent) *types.EnvelopeEvent {
+// NewWakuEnvelopeEventWrapper returns a common.EnvelopeEvent object that mimics Geth's EnvelopeEvent
+func NewWakuEnvelopeEventWrapper(envelopeEvent *wakucommon.EnvelopeEvent) *types.EnvelopeEvent {
 	if envelopeEvent == nil {
 		panic("envelopeEvent should not be nil")
 	}
 
 	wrappedData := envelopeEvent.Data
 	switch data := envelopeEvent.Data.(type) {
-	case []wakutypes.EnvelopeError:
+	case []wakucommon.EnvelopeError:
 		wrappedData := make([]types.EnvelopeError, len(data))
 		for index, envError := range data {
 			wrappedData[index] = *NewWakuEnvelopeErrorWrapper(&envError)

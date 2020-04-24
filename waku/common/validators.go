@@ -1,4 +1,4 @@
-package types
+package common
 
 // ValidateDataIntegrity returns false if the data have the wrong or contains all zeros,
 // which is the simplest and the most common bug.

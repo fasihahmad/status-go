@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/status-im/status-go/waku/types"
+	"github.com/status-im/status-go/waku/common"
 )
 
 func TestEncodeDecodeRLP(t *testing.T) {
@@ -18,15 +18,15 @@ func TestEncodeDecodeRLP(t *testing.T) {
 
 	opts := StatusOptions{
 		PoWRequirementExport:       &pow,
-		BloomFilterExport:          types.TopicToBloom(types.TopicType{0xaa, 0xbb, 0xcc, 0xdd}),
+		BloomFilterExport:          common.TopicToBloom(common.TopicType{0xaa, 0xbb, 0xcc, 0xdd}),
 		LightNodeEnabledExport:     &lightNodeEnabled,
 		ConfirmationsEnabledExport: &confirmationsEnabled,
-		RateLimitsExport: &types.RateLimits{
+		RateLimitsExport: &common.RateLimits{
 			IPLimits:     10,
 			PeerIDLimits: 5,
 			TopicLimits:  1,
 		},
-		TopicInterestExport: []types.TopicType{{0x01}, {0x02}, {0x03}, {0x04}},
+		TopicInterestExport: []common.TopicType{{0x01}, {0x02}, {0x03}, {0x04}},
 	}
 	data, err := rlp.EncodeToBytes(opts)
 	require.NoError(t, err)

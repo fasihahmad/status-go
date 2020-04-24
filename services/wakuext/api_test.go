@@ -31,7 +31,7 @@ import (
 	"github.com/status-im/status-go/sqlite"
 	"github.com/status-im/status-go/t/helpers"
 	"github.com/status-im/status-go/waku"
-	wakutypes "github.com/status-im/status-go/waku/types"
+	wakucommon "github.com/status-im/status-go/waku/common"
 )
 
 func TestRequestMessagesErrors(t *testing.T) {
@@ -353,7 +353,7 @@ func (s *RequestMessagesSyncSuite) TestExpired() {
 		},
 		ext.MessagesRequest{
 			MailServerPeer: s.localNode.String(),
-			Topics:         []types.TopicType{{0x01, 0x02, 0x03, 0x04}},
+			Topics:         []common.TopicType{{0x01, 0x02, 0x03, 0x04}},
 		},
 	)
 	s.Require().EqualError(err, "failed to request messages after 1 retries")
@@ -375,7 +375,7 @@ func (s *RequestMessagesSyncSuite) testCompletedFromAttempt(target int) {
 				s.Require().NoError(msg.Discard())
 				continue
 			}
-			var e wakutypes.Envelope
+			var e wakucommon.Envelope
 			s.Require().NoError(msg.Decode(&e))
 			s.Require().NoError(p2p.Send(s.remoteRW, p2pRequestCompleteCode, waku.CreateMailServerRequestCompletedPayload(e.Hash(), common.Hash{}, cursor[:])))
 		}

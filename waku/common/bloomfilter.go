@@ -1,4 +1,4 @@
-package types
+package common
 
 func IsFullNode(bloom []byte) bool {
 	if bloom == nil {

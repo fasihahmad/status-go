@@ -13,18 +13,18 @@ import (
 	"github.com/ethereum/go-ethereum/p2p"
 
 	"github.com/status-im/status-go/waku"
-	wakutypes "github.com/status-im/status-go/waku/types"
+	wakucommon "github.com/status-im/status-go/waku/common"
 	"github.com/status-im/status-go/whisper/v6"
 )
 
 func TestEnvelopesBeingIdentical(t *testing.T) {
-	// whisper.Envelope --> wakutypes.Envelope
+	// whisper.Envelope --> wakucommon.Envelope
 	whisperEnvelope, err := createWhisperEnvelope()
 	require.NoError(t, err)
-	wakuEnvelope := (*wakutypes.Envelope)(unsafe.Pointer(whisperEnvelope)) // nolint: gosec
+	wakuEnvelope := (*wakucommon.Envelope)(unsafe.Pointer(whisperEnvelope)) // nolint: gosec
 	require.Equal(t, whisperEnvelope.Hash(), wakuEnvelope.Hash())
 
-	// wakutypes.Envelope --> whisper.Envelope
+	// wakucommon.Envelope --> whisper.Envelope
 	wakuEnvelope, err = createWakuEnvelope()
 	require.NoError(t, err)
 	whisperEnvelope = (*whisper.Envelope)(unsafe.Pointer(wakuEnvelope)) // nolint: gosec
@@ -48,7 +48,7 @@ func TestBridgeWhisperToWaku(t *testing.T) {
 	require.NoError(t, err)
 
 	// Subscribe for envelope events in Waku.
-	eventsWaku := make(chan wakutypes.EnvelopeEvent, 10)
+	eventsWaku := make(chan wakucommon.EnvelopeEvent, 10)
 	sub1 := wak.SubscribeEnvelopeEvents(eventsWaku)
 	defer sub1.Unsubscribe()
 
@@ -107,7 +107,7 @@ func TestBridgeWakuToWhisper(t *testing.T) {
 	defer sub1.Unsubscribe()
 
 	// Subscribe for envelope events in Waku.
-	eventsWaku := make(chan wakutypes.EnvelopeEvent, 10)
+	eventsWaku := make(chan wakucommon.EnvelopeEvent, 10)
 	sub2 := wak.SubscribeEnvelopeEvents(eventsWaku)
 	defer sub2.Unsubscribe()
 
@@ -168,20 +168,20 @@ func createWhisperEnvelope() (*whisper.Envelope, error) {
 	return envelope, nil
 }
 
-func createWakuEnvelope() (*wakutypes.Envelope, error) {
-	messageParams := &wakutypes.MessageParams{
+func createWakuEnvelope() (*wakucommon.Envelope, error) {
+	messageParams := &wakucommon.MessageParams{
 		TTL:      120,
 		KeySym:   []byte{0xaa, 0xbb, 0xcc},
-		Topic:    wakutypes.BytesToTopic([]byte{0x01}),
+		Topic:    wakucommon.BytesToTopic([]byte{0x01}),
 		WorkTime: 10,
 		PoW:      2.0,
 		Payload:  []byte("hello!"),
 	}
-	sentMessage, err := wakutypes.NewSentMessage(messageParams)
+	sentMessage, err := wakucommon.NewSentMessage(messageParams)
 	if err != nil {
 		return nil, err
 	}
-	envelope := wakutypes.NewEnvelope(120, wakutypes.BytesToTopic([]byte{0x01}), sentMessage, time.Now())
+	envelope := wakucommon.NewEnvelope(120, wakucommon.BytesToTopic([]byte{0x01}), sentMessage, time.Now())
 	if err := envelope.Seal(messageParams); err != nil {
 		return nil, err
 	}
