@@ -16,11 +16,12 @@
 // This software uses the go-ethereum library, which is licensed
 // under the GNU Lesser General Public Library, version 3 or any later.
 
-package waku
+package types
 
 import (
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/status-im/status-go/waku/types"
+	"time"
+
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 // Waku protocol parameters
@@ -32,6 +33,7 @@ const (
 	// Waku protocol message codes, according to https://github.com/vacp2p/specs/blob/master/waku.md
 	statusCode             = 0   // used in the handshake
 	messagesCode           = 1   // regular message
+	statusUpdateCode       = 22  // update of settings
 	batchAcknowledgedCode  = 11  // confirmation that batch of envelopes was received
 	messageResponseCode    = 12  // includes confirmation for delivery and information about errors
 	p2pRequestCompleteCode = 125 // peer-to-peer message, used by Dapp protocol
@@ -39,14 +41,29 @@ const (
 	p2pMessageCode         = 127 // peer-to-peer message (to be consumed by the peer, but not forwarded any further)
 	NumberOfMessageCodes   = 128
 
-	aesKeyLength     = 32 // in bytes
+	SizeMask      = byte(3) // mask used to extract the size of payload size field from the flags
+	signatureFlag = byte(4)
+
+	TopicLength      = 4                      // in bytes
+	signatureLength  = crypto.SignatureLength // in bytes
+	aesKeyLength     = 32                     // in bytes
+	aesNonceLength   = 12                     // in bytes; for more info please see cipher.gcmStandardNonceSize & aesgcm.NonceSize()
+	KeyIDSize        = 32                     // in bytes
+	BloomFilterSize  = 64                     // in bytes
 	MaxTopicInterest = 10000
+	flagsLength      = 1
+
+	EnvelopeHeaderLength = 20
 
 	MaxMessageSize        = uint32(10 * 1024 * 1024) // maximum accepted size of a message.
 	DefaultMaxMessageSize = uint32(1024 * 1024)
 	DefaultMinimumPoW     = 0.2
 
+	padSizeLimit      = 256 // just an arbitrary number, could be changed without breaking the protocol
 	messageQueueLimit = 1024
+
+	ExpirationCycle   = time.Second
+	TransmissionCycle = 300 * time.Millisecond
 
 	DefaultTTL           = 50 // seconds
 	DefaultSyncAllowance = 10 // seconds
@@ -58,44 +75,3 @@ const (
 
 	MaxLimitInMessagesRequest = 1000
 )
-
-// MailServer represents a mail server, capable of
-// archiving the old messages for subsequent delivery
-// to the peers. Any implementation must ensure that both
-// functions are thread-safe. Also, they must return ASAP.
-// DeliverMail should use p2pMessageCode for delivery,
-// in order to bypass the expiry checks.
-type MailServer interface {
-	Archive(env *types.Envelope)
-	DeliverMail(peerID []byte, request *types.Envelope) // DEPRECATED; use Deliver()
-	Deliver(peerID []byte, request types.MessagesRequest)
-}
-
-// MessagesResponse sent as a response after processing batch of envelopes.
-type MessagesResponse struct {
-	// Hash is a hash of all envelopes sent in the single batch.
-	Hash common.Hash
-	// Per envelope error.
-	Errors []types.EnvelopeError
-}
-
-// ErrorToEnvelopeError converts common golang error into EnvelopeError with a code.
-func ErrorToEnvelopeError(hash common.Hash, err error) types.EnvelopeError {
-	code := EnvelopeOtherError
-	switch err.(type) {
-	case TimeSyncError:
-		code = EnvelopeTimeNotSynced
-	}
-	return types.EnvelopeError{
-		Hash:        hash,
-		Code:        code,
-		Description: err.Error(),
-	}
-}
-
-// MailServerResponse is the response payload sent by the mailserver.
-type MailServerResponse struct {
-	LastEnvelopeHash common.Hash
-	Cursor           []byte
-	Error            error
-}

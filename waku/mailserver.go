@@ -41,9 +41,9 @@ const (
 // DeliverMail should use p2pMessageCode for delivery,
 // in order to bypass the expiry checks.
 type MailServer interface {
-	Archive(env *Envelope)
-	DeliverMail(peerID []byte, request *Envelope) // DEPRECATED; use Deliver()
-	Deliver(peerID []byte, request MessagesRequest)
+	Archive(env *types.Envelope)
+	DeliverMail(peerID []byte, request *types.Envelope) // DEPRECATED; use Deliver()
+	Deliver(peerID []byte, request types.MessagesRequest)
 }
 
 // MailServerResponse is the response payload sent by the mailserver.

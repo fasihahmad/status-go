@@ -48,9 +48,6 @@ import (
 	"github.com/status-im/status-go/waku/v0"
 )
 
-// TimeSyncError error for clock skew errors.
-type TimeSyncError error
-
 type Bridge interface {
 	Pipe() (<-chan *types.Envelope, chan<- *types.Envelope)
 }
@@ -1067,12 +1064,12 @@ func (w *Waku) OnNewEnvelopes(envelopes []*types.Envelope, protocol types.Protoc
 	for _, env := range envelopes {
 		cached, err := w.add(env, w.LightClientMode())
 		if err != nil {
-			_, isTimeSyncError := err.(TimeSyncError)
+			_, isTimeSyncError := err.(types.TimeSyncError)
 			if !isTimeSyncError {
 				trouble = true
 				w.logger.Info("invalid envelope received", zap.Binary("peer", protocol.Them().ID()), zap.Error(err))
 			}
-			envelopeErrors = append(envelopeErrors, ErrorToEnvelopeError(env.Hash(), err))
+			envelopeErrors = append(envelopeErrors, types.ErrorToEnvelopeError(env.Hash(), err))
 		} else if cached {
 			protocol.Them().Mark(env)
 		}
@@ -1238,7 +1235,7 @@ func (w *Waku) addAndBridge(envelope *types.Envelope, isP2P bool, bridged bool) 
 		if sent-DefaultSyncAllowance > now {
 			types.EnvelopesCacheFailedCounter.WithLabelValues("in_future").Inc()
 			log.Warn("envelope created in the future", "hash", envelope.Hash())
-			return false, TimeSyncError(errors.New("envelope from future"))
+			return false, types.TimeSyncError(errors.New("envelope from future"))
 		}
 		// recalculate PoW, adjusted for the time difference, plus one second for latency
 		envelope.CalculatePoW(sent - now + 1)
@@ -1248,7 +1245,7 @@ func (w *Waku) addAndBridge(envelope *types.Envelope, isP2P bool, bridged bool) 
 		if envelope.Expiry+DefaultSyncAllowance*2 < now {
 			types.EnvelopesCacheFailedCounter.WithLabelValues("very_old").Inc()
 			log.Warn("very old envelope", "hash", envelope.Hash())
-			return false, TimeSyncError(errors.New("very old envelope"))
+			return false, types.TimeSyncError(errors.New("very old envelope"))
 		}
 		log.Debug("expired envelope dropped", "hash", envelope.Hash().Hex())
 		types.EnvelopesCacheFailedCounter.WithLabelValues("expired").Inc()

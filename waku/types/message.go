@@ -128,14 +128,6 @@ func (r MessagesRequest) Validate() error {
 	return nil
 }
 
-// MessagesResponse sent as a response after processing batch of envelopes.
-type MessagesResponse struct {
-	// Hash is a hash of all envelopes sent in the single batch.
-	Hash common.Hash
-	// Per envelope error.
-	Errors []EnvelopeError
-}
-
 // MultiVersionResponse allows to decode response into chosen version.
 type MultiVersionResponse struct {
 	Version  uint
