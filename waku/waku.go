@@ -1378,31 +1378,6 @@ func (w *Waku) expire() {
 	}
 }
 
-func (w *Waku) ToStatusOptions() common.StatusOption {
-	opts := v0.StatusOptions{}
-
-	rateLimits := w.RateLimits()
-	opts.RateLimitsExport = &rateLimits
-
-	lightNode := w.LightClientMode()
-	opts.LightNodeEnabledExport = &lightNode
-
-	minPoW := w.MinPow()
-	opts.SetPoWRequirementFromF(minPoW)
-
-	confirmationsEnabled := w.ConfirmationsEnabled()
-	opts.ConfirmationsEnabledExport = &confirmationsEnabled
-
-	bloomFilterMode := w.BloomFilterMode()
-	if bloomFilterMode {
-		opts.BloomFilterExport = w.BloomFilter()
-	} else {
-		opts.TopicInterestExport = w.TopicInterest()
-	}
-
-	return opts
-}
-
 // Envelopes retrieves all the messages currently pooled by the node.
 func (w *Waku) Envelopes() []*common.Envelope {
 	w.poolMu.RLock()

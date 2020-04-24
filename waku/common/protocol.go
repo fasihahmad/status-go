@@ -48,12 +48,12 @@ type Peer interface {
 
 	PoWRequirement() float64
 	BloomFilter() []byte
+	ConfirmationsEnabled() bool
 }
 
 // WakuHost is the local instance of waku, which both interacts with remote clients
 // (peers) and local clients (through RPC API)
 type WakuHost interface {
-	ToStatusOptions() StatusOption
 	// MaxMessageSize returns the maximum accepted message size.
 	MaxMessageSize() uint32
 
@@ -65,11 +65,23 @@ type WakuHost interface {
 	LightClientModeConnectionRestricted() bool
 	// ConfirmationsEnabled returns true if message confirmations are enabled.
 	ConfirmationsEnabled() bool
+	// RateLimits returns the current rate limits for the host
+	RateLimits() RateLimits
+	// MinPow returns the MinPow for the host
+	MinPow() float64
+	// BloomFilterMode returns whether the host is using bloom filter
+	BloomFilterMode() bool
+	// BloomFilter returns the bloom filter for the host
+	BloomFilter() []byte
+	//TopicInterest returns the topics for the host
+	TopicInterest() []TopicType
+
 	// isEnvelopeCached checks if envelope with specific hash has already been received and cached.
 	IsEnvelopeCached(common.Hash) bool
 	// Envelopes returns all the envelopes queued
 	Envelopes() []*Envelope
 	SendEnvelopeEvent(EnvelopeEvent) int
+
 	// OnNewEnvelopes handles newly received envelopes from a peer
 	OnNewEnvelopes([]*Envelope, Peer) ([]EnvelopeError, error)
 	// OnNewP2PEnvelopes handles envelopes received though the P2P

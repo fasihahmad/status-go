@@ -17,16 +17,16 @@ func TestEncodeDecodeRLP(t *testing.T) {
 	confirmationsEnabled := true
 
 	opts := StatusOptions{
-		PoWRequirementExport:       &pow,
-		BloomFilterExport:          common.TopicToBloom(common.TopicType{0xaa, 0xbb, 0xcc, 0xdd}),
-		LightNodeEnabledExport:     &lightNodeEnabled,
-		ConfirmationsEnabledExport: &confirmationsEnabled,
-		RateLimitsExport: &common.RateLimits{
+		PoWRequirement:       &pow,
+		BloomFilter:          common.TopicToBloom(common.TopicType{0xaa, 0xbb, 0xcc, 0xdd}),
+		LightNodeEnabled:     &lightNodeEnabled,
+		ConfirmationsEnabled: &confirmationsEnabled,
+		RateLimits: &common.RateLimits{
 			IPLimits:     10,
 			PeerIDLimits: 5,
 			TopicLimits:  1,
 		},
-		TopicInterestExport: []common.TopicType{{0x01}, {0x02}, {0x03}, {0x04}},
+		TopicInterest: []common.TopicType{{0x01}, {0x02}, {0x03}, {0x04}},
 	}
 	data, err := rlp.EncodeToBytes(opts)
 	require.NoError(t, err)
@@ -48,7 +48,7 @@ func TestBackwardCompatibility(t *testing.T) {
 	err = rlp.DecodeBytes(data, &optsDecoded)
 	require.NoError(t, err)
 	pow := math.Float64bits(2.05)
-	require.EqualValues(t, StatusOptions{PoWRequirementExport: &pow}, optsDecoded)
+	require.EqualValues(t, StatusOptions{PoWRequirement: &pow}, optsDecoded)
 }
 
 func TestForwardCompatibility(t *testing.T) {
@@ -63,7 +63,7 @@ func TestForwardCompatibility(t *testing.T) {
 	var optsDecoded StatusOptions
 	err = rlp.DecodeBytes(data, &optsDecoded)
 	require.NoError(t, err)
-	require.EqualValues(t, StatusOptions{PoWRequirementExport: &pow}, optsDecoded)
+	require.EqualValues(t, StatusOptions{PoWRequirement: &pow}, optsDecoded)
 }
 
 func TestInitRLPKeyFields(t *testing.T) {

@@ -70,15 +70,15 @@ func (p *Peer) Stop() {
 
 func (p *Peer) NotifyAboutPowRequirementChange(pow float64) error {
 	i := math.Float64bits(pow)
-	return p2p.Send(p.rw, StatusUpdateCode, StatusOptions{PoWRequirementExport: &i})
+	return p2p.Send(p.rw, StatusUpdateCode, StatusOptions{PoWRequirement: &i})
 }
 
 func (p *Peer) NotifyAboutBloomFilterChange(bloom []byte) error {
-	return p2p.Send(p.rw, StatusUpdateCode, StatusOptions{BloomFilterExport: bloom})
+	return p2p.Send(p.rw, StatusUpdateCode, StatusOptions{BloomFilter: bloom})
 }
 
 func (p *Peer) NotifyAboutTopicInterestChange(topics []common.TopicType) error {
-	return p2p.Send(p.rw, StatusUpdateCode, StatusOptions{TopicInterestExport: topics})
+	return p2p.Send(p.rw, StatusUpdateCode, StatusOptions{TopicInterest: topics})
 }
 
 func (p *Peer) SetPeerTrusted(trusted bool) {
@@ -363,7 +363,7 @@ func (p *Peer) sendConfirmation(data []byte, envelopeErrors []common.EnvelopeErr
 func (p *Peer) handshake() error {
 	// Send the handshake status message asynchronously
 	errc := make(chan error, 1)
-	opts := p.host.ToStatusOptions()
+	opts := StatusOptionsFromHost(p.host)
 	go func() {
 		errc <- p2p.SendItems(p.rw, StatusCode, Version, opts)
 	}()
@@ -449,11 +449,11 @@ func (p *Peer) setOptions(peerOptions StatusOptions) error {
 		p.powRequirement = *pow
 	}
 
-	if peerOptions.TopicInterestExport != nil {
-		p.setTopicInterest(peerOptions.TopicInterestExport)
-	} else if peerOptions.BloomFilterExport != nil {
+	if peerOptions.TopicInterest != nil {
+		p.setTopicInterest(peerOptions.TopicInterest)
+	} else if peerOptions.BloomFilter != nil {
 		// Validate and save peer's bloom filters.
-		bloom := peerOptions.BloomFilterExport
+		bloom := peerOptions.BloomFilter
 		bloomSize := len(bloom)
 		if bloomSize != 0 && bloomSize != common.BloomFilterSize {
 			return fmt.Errorf("p [%x] sent bad status message: wrong bloom filter size %d", p.ID(), bloomSize)
@@ -461,17 +461,17 @@ func (p *Peer) setOptions(peerOptions StatusOptions) error {
 		p.setBloomFilter(bloom)
 	}
 
-	if peerOptions.LightNodeEnabledExport != nil {
+	if peerOptions.LightNodeEnabled != nil {
 		// Validate and save other peer's options.
-		if *peerOptions.LightNodeEnabledExport && p.host.LightClientMode() && p.host.LightClientModeConnectionRestricted() {
+		if *peerOptions.LightNodeEnabled && p.host.LightClientMode() && p.host.LightClientModeConnectionRestricted() {
 			return fmt.Errorf("p [%x] is useless: two light client communication restricted", p.ID())
 		}
 	}
-	if peerOptions.ConfirmationsEnabledExport != nil {
-		p.confirmationsEnabled = *peerOptions.ConfirmationsEnabledExport
+	if peerOptions.ConfirmationsEnabled != nil {
+		p.confirmationsEnabled = *peerOptions.ConfirmationsEnabled
 	}
-	if peerOptions.RateLimitsExport != nil {
-		p.setRateLimits(*peerOptions.RateLimitsExport)
+	if peerOptions.RateLimits != nil {
+		p.setRateLimits(*peerOptions.RateLimits)
 	}
 
 	return nil
@@ -617,4 +617,8 @@ func (p *Peer) BloomFilter() []byte {
 
 func (p *Peer) PoWRequirement() float64 {
 	return p.powRequirement
+}
+
+func (p *Peer) ConfirmationsEnabled() bool {
+	return p.confirmationsEnabled
 }

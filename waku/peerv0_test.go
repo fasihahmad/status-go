@@ -520,7 +520,7 @@ func TestPeerHandshakeWithTwoFullNode(t *testing.T) {
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
 			v0.Version,
-			v0.StatusOptions{PoWRequirementExport: &pow},
+			v0.StatusOptions{PoWRequirement: &pow},
 		}},
 		nil,
 	)
@@ -539,7 +539,7 @@ func TestHandshakeWithOldVersionWithoutLightModeFlag(t *testing.T) {
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
 			v0.Version,
-			v0.StatusOptions{PoWRequirementExport: &pow},
+			v0.StatusOptions{PoWRequirement: &pow},
 		}},
 		nil,
 	)
@@ -561,7 +561,7 @@ func TestTwoLightPeerHandshakeRestrictionOff(t *testing.T) {
 		p2p.NewPeer(enode.ID{}, "test", []p2p.Cap{}),
 		&rwStub{[]interface{}{
 			v0.Version,
-			v0.StatusOptions{PoWRequirementExport: &pow, LightNodeEnabledExport: &lightNodeEnabled},
+			v0.StatusOptions{PoWRequirement: &pow, LightNodeEnabled: &lightNodeEnabled},
 		}},
 		nil,
 	)

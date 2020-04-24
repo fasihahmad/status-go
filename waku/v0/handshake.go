@@ -29,12 +29,37 @@ var (
 // In the case of RLP, options should be serialized to an array of tuples
 // where the first item is a field name and the second is a RLP-serialized value.
 type StatusOptions struct {
-	PoWRequirementExport       *uint64            `rlp:"key=0"` // RLP does not support float64 natively
-	BloomFilterExport          []byte             `rlp:"key=1"`
-	LightNodeEnabledExport     *bool              `rlp:"key=2"`
-	ConfirmationsEnabledExport *bool              `rlp:"key=3"`
-	RateLimitsExport           *common.RateLimits `rlp:"key=4"`
-	TopicInterestExport        []common.TopicType `rlp:"key=5"`
+	PoWRequirement       *uint64            `rlp:"key=0"` // RLP does not support float64 natively
+	BloomFilter          []byte             `rlp:"key=1"`
+	LightNodeEnabled     *bool              `rlp:"key=2"`
+	ConfirmationsEnabled *bool              `rlp:"key=3"`
+	RateLimits           *common.RateLimits `rlp:"key=4"`
+	TopicInterest        []common.TopicType `rlp:"key=5"`
+}
+
+func StatusOptionsFromHost(host common.WakuHost) StatusOptions {
+	opts := StatusOptions{}
+
+	rateLimits := host.RateLimits()
+	opts.RateLimits = &rateLimits
+
+	lightNode := host.LightClientMode()
+	opts.LightNodeEnabled = &lightNode
+
+	minPoW := host.MinPow()
+	opts.SetPoWRequirementFromF(minPoW)
+
+	confirmationsEnabled := host.ConfirmationsEnabled()
+	opts.ConfirmationsEnabled = &confirmationsEnabled
+
+	bloomFilterMode := host.BloomFilterMode()
+	if bloomFilterMode {
+		opts.BloomFilter = host.BloomFilter()
+	} else {
+		opts.TopicInterest = host.TopicInterest()
+	}
+
+	return opts
 }
 
 // initFLPKeyFields initialises the values of `idxFieldKey` and `keyFieldIdx`
@@ -70,42 +95,42 @@ func initRLPKeyFields() {
 // This are not the host default values, but the default values that ought to
 // be used when receiving from an update from a peer.
 func (o StatusOptions) WithDefaults() StatusOptions {
-	if o.PoWRequirementExport == nil {
-		o.PoWRequirementExport = &defaultMinPoW
+	if o.PoWRequirement == nil {
+		o.PoWRequirement = &defaultMinPoW
 	}
 
-	if o.LightNodeEnabledExport == nil {
+	if o.LightNodeEnabled == nil {
 		lightNodeEnabled := false
-		o.LightNodeEnabledExport = &lightNodeEnabled
+		o.LightNodeEnabled = &lightNodeEnabled
 	}
 
-	if o.ConfirmationsEnabledExport == nil {
+	if o.ConfirmationsEnabled == nil {
 		confirmationsEnabled := false
-		o.ConfirmationsEnabledExport = &confirmationsEnabled
+		o.ConfirmationsEnabled = &confirmationsEnabled
 	}
 
-	if o.RateLimitsExport == nil {
-		o.RateLimitsExport = &common.RateLimits{}
+	if o.RateLimits == nil {
+		o.RateLimits = &common.RateLimits{}
 	}
 
-	if o.BloomFilterExport == nil {
-		o.BloomFilterExport = common.MakeFullNodeBloom()
+	if o.BloomFilter == nil {
+		o.BloomFilter = common.MakeFullNodeBloom()
 	}
 
 	return o
 }
 
 func (o StatusOptions) PoWRequirementF() *float64 {
-	if o.PoWRequirementExport == nil {
+	if o.PoWRequirement == nil {
 		return nil
 	}
-	result := math.Float64frombits(*o.PoWRequirementExport)
+	result := math.Float64frombits(*o.PoWRequirement)
 	return &result
 }
 
 func (o *StatusOptions) SetPoWRequirementFromF(val float64) {
 	requirement := math.Float64bits(val)
-	o.PoWRequirementExport = &requirement
+	o.PoWRequirement = &requirement
 }
 
 func (o StatusOptions) EncodeRLP(w io.Writer) error {
@@ -175,32 +200,8 @@ loop:
 }
 
 func (o StatusOptions) Validate() error {
-	if len(o.TopicInterestExport) > 1000 {
+	if len(o.TopicInterest) > 10000 {
 		return errors.New("topic interest is limited by 1000 items")
 	}
 	return nil
-}
-
-func (o StatusOptions) BloomFilter() []byte {
-	return o.BloomFilterExport
-}
-
-func (o StatusOptions) ConfirmationsEnabled() *bool {
-	return o.ConfirmationsEnabledExport
-}
-
-func (o StatusOptions) LightNodeEnabled() *bool {
-	return o.LightNodeEnabledExport
-}
-
-func (o StatusOptions) PoWRequirement() *uint64 {
-	return o.PoWRequirementExport
-}
-
-func (o StatusOptions) RateLimits() *common.RateLimits {
-	return o.RateLimitsExport
-}
-
-func (o StatusOptions) TopicInterest() []common.TopicType {
-	return o.TopicInterestExport
 }

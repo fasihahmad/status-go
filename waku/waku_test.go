@@ -1171,7 +1171,7 @@ func testConfirmationsHandshake(t *testing.T, expectConfirmations bool) {
 			v0.StatusCode,
 			[]interface{}{
 				v0.Version,
-				w.ToStatusOptions(),
+				v0.StatusOptionsFromHost(w),
 			},
 		),
 	)
@@ -1219,7 +1219,7 @@ func TestConfirmationReceived(t *testing.T) {
 			v0.StatusCode,
 			[]interface{}{
 				v0.Version,
-				w.ToStatusOptions(),
+				v0.StatusOptionsFromHost(w),
 			},
 		),
 	)
@@ -1230,10 +1230,10 @@ func TestConfirmationReceived(t *testing.T) {
 			v0.StatusCode,
 			v0.Version,
 			v0.StatusOptions{
-				PoWRequirementExport:       &pow,
-				BloomFilterExport:          w.BloomFilter(),
-				ConfirmationsEnabledExport: &confirmationsEnabled,
-				LightNodeEnabledExport:     &lightNodeEnabled,
+				PoWRequirement:       &pow,
+				BloomFilter:          w.BloomFilter(),
+				ConfirmationsEnabled: &confirmationsEnabled,
+				LightNodeEnabled:     &lightNodeEnabled,
 			},
 		),
 	)
@@ -1282,7 +1282,7 @@ func TestMessagesResponseWithError(t *testing.T) {
 			v0.StatusCode,
 			[]interface{}{
 				v0.Version,
-				w.ToStatusOptions(),
+				v0.StatusOptionsFromHost(w),
 			},
 		),
 	)
@@ -1293,10 +1293,10 @@ func TestMessagesResponseWithError(t *testing.T) {
 			v0.StatusCode,
 			v0.Version,
 			v0.StatusOptions{
-				PoWRequirementExport:       &pow,
-				BloomFilterExport:          w.BloomFilter(),
-				ConfirmationsEnabledExport: &confirmationsEnabled,
-				LightNodeEnabledExport:     &lightNodeEnabled,
+				PoWRequirement:       &pow,
+				BloomFilter:          w.BloomFilter(),
+				ConfirmationsEnabled: &confirmationsEnabled,
+				LightNodeEnabled:     &lightNodeEnabled,
 			},
 		),
 	)
@@ -1357,7 +1357,7 @@ func testConfirmationEvents(t *testing.T, envelope common.Envelope, envelopeErro
 		v0.StatusCode,
 		[]interface{}{
 			v0.Version,
-			w.ToStatusOptions(),
+			v0.StatusOptionsFromHost(w),
 		},
 	))
 	require.NoError(t, p2p.SendItems(
@@ -1365,10 +1365,10 @@ func testConfirmationEvents(t *testing.T, envelope common.Envelope, envelopeErro
 		v0.StatusCode,
 		v0.Version,
 		v0.StatusOptions{
-			PoWRequirementExport:       &pow,
-			BloomFilterExport:          w.BloomFilter(),
-			ConfirmationsEnabledExport: &confirmationsEnabled,
-			LightNodeEnabledExport:     &lightNodeEnabled,
+			PoWRequirement:       &pow,
+			BloomFilter:          w.BloomFilter(),
+			ConfirmationsEnabled: &confirmationsEnabled,
+			LightNodeEnabled:     &lightNodeEnabled,
 		},
 	))
 	require.NoError(t, w.Send(&envelope))
@@ -1456,7 +1456,7 @@ func TestEventsWithoutConfirmation(t *testing.T) {
 			v0.StatusCode,
 			[]interface{}{
 				v0.Version,
-				w.ToStatusOptions(),
+				v0.StatusOptionsFromHost(w),
 			},
 		),
 	)
@@ -1467,9 +1467,9 @@ func TestEventsWithoutConfirmation(t *testing.T) {
 			v0.StatusCode,
 			v0.Version,
 			v0.StatusOptions{
-				PoWRequirementExport:   &pow,
-				BloomFilterExport:      w.BloomFilter(),
-				LightNodeEnabledExport: &lightNodeEnabled,
+				PoWRequirement:   &pow,
+				BloomFilter:      w.BloomFilter(),
+				LightNodeEnabled: &lightNodeEnabled,
 			},
 		),
 	)
@@ -1639,7 +1639,7 @@ func TestRateLimiterIntegration(t *testing.T) {
 			v0.StatusCode,
 			[]interface{}{
 				v0.Version,
-				w.ToStatusOptions(),
+				v0.StatusOptionsFromHost(w),
 			},
 		),
 	)
