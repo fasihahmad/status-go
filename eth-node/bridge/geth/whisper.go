@@ -12,7 +12,7 @@ type gethWhisperWrapper struct {
 	whisper *whisper.Whisper
 }
 
-// NewGethWhisperWrapper returns an object that wraps Geth's Whisper in a common interface
+// NewGethWhisperWrapper returns an object that wraps Geth's Whisper in a types interface
 func NewGethWhisperWrapper(w *whisper.Whisper) types.Whisper {
 	if w == nil {
 		panic("w cannot be nil")
@@ -184,7 +184,7 @@ type whisperFilterWrapper struct {
 	id     string
 }
 
-// NewWhisperFilterWrapper returns an object that wraps Geth's Filter in a common interface
+// NewWhisperFilterWrapper returns an object that wraps Geth's Filter in a types interface
 func NewWhisperFilterWrapper(f *whisper.Filter, id string) types.Filter {
 	if f.Messages == nil {
 		panic("Messages should not be nil")

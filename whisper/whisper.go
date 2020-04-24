@@ -1272,7 +1272,7 @@ func (whisper *Whisper) runMessageLoop(p *Peer, rw p2p.MsgReadWriter) error {
 				}
 			}
 		default:
-			// New message common might be implemented in the future versions of Whisper.
+			// New message types might be implemented in the future versions of Whisper.
 			// For forward compatibility, just ignore.
 		}
 

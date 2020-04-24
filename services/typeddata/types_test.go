@@ -10,7 +10,7 @@ import (
 func TestUnmarshalFull(t *testing.T) {
 	data := `
 {
-  "common": {
+  "types": {
     "EIP712Domain": [
       {
 	"name": "name",
@@ -89,7 +89,7 @@ func TestValidateField(t *testing.T) {
 
 func TestValidateTypedData(t *testing.T) {
 	d := TypedData{Types: Types{}}
-	require.EqualError(t, d.Validate(), "`EIP712Domain` must be in `common`")
+	require.EqualError(t, d.Validate(), "`EIP712Domain` must be in `types`")
 	d.Types[eip712Domain] = []Field{}
 	require.EqualError(t, d.Validate(), "`primaryType` is required")
 	d.PrimaryType = "primary"

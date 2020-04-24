@@ -13,7 +13,7 @@ type whisperEnvelope struct {
 	env *whisper.Envelope
 }
 
-// NewWhisperEnvelope returns an object that wraps Geth's Whisper Envelope in a common interface.
+// NewWhisperEnvelope returns an object that wraps Geth's Whisper Envelope in a types interface.
 func NewWhisperEnvelope(e *whisper.Envelope) types.Envelope {
 	return &whisperEnvelope{env: e}
 }
@@ -62,7 +62,7 @@ type wakuEnvelope struct {
 	env *waku.Envelope
 }
 
-// NewWakuEnvelope returns an object that wraps Geth's Waku Envelope in a common interface.
+// NewWakuEnvelope returns an object that wraps Geth's Waku Envelope in a types interface.
 func NewWakuEnvelope(e *waku.Envelope) types.Envelope {
 	return &wakuEnvelope{env: e}
 }

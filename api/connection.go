@@ -15,10 +15,10 @@ type connectionState struct {
 }
 
 // connectionType represents description of available
-// connection common as reported by React Native (see
+// connection types as reported by React Native (see
 // https://facebook.github.io/react-native/docs/netinfo.html)
 // We're interested mainly in 'wifi' and 'cellular', but
-// other common are also may be used.
+// other types are also may be used.
 type connectionType byte
 
 const (

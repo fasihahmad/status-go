@@ -7,7 +7,7 @@ import (
 	"github.com/status-im/status-go/whisper/v6"
 )
 
-// NewWhisperEnvelopeEventWrapper returns a common.EnvelopeEvent object that mimics Geth's EnvelopeEvent
+// NewWhisperEnvelopeEventWrapper returns a types.EnvelopeEvent object that mimics Geth's EnvelopeEvent
 func NewWhisperEnvelopeEventWrapper(envelopeEvent *whisper.EnvelopeEvent) *types.EnvelopeEvent {
 	if envelopeEvent == nil {
 		panic("envelopeEvent should not be nil")
@@ -34,7 +34,7 @@ func NewWhisperEnvelopeEventWrapper(envelopeEvent *whisper.EnvelopeEvent) *types
 	}
 }
 
-// NewWakuEnvelopeEventWrapper returns a common.EnvelopeEvent object that mimics Geth's EnvelopeEvent
+// NewWakuEnvelopeEventWrapper returns a types.EnvelopeEvent object that mimics Geth's EnvelopeEvent
 func NewWakuEnvelopeEventWrapper(envelopeEvent *wakucommon.EnvelopeEvent) *types.EnvelopeEvent {
 	if envelopeEvent == nil {
 		panic("envelopeEvent should not be nil")

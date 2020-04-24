@@ -201,7 +201,7 @@ func (c *Client) handler(method string) (Handler, bool) {
 }
 
 // setResultFromRPCResponse tries to set result value from response using reflection
-// as concrete common are unknown.
+// as concrete types are unknown.
 func setResultFromRPCResponse(result, response interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {

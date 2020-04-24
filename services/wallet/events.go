@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// EventType type for event common.
+// EventType type for event types.
 type EventType string
 
 const (

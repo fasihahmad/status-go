@@ -68,7 +68,7 @@ type MembershipUpdateEvent struct {
 	Clock uint64 `protobuf:"varint,1,opt,name=clock,proto3" json:"clock,omitempty"`
 	// List of public keys of objects of the action
 	Members []string `protobuf:"bytes,2,rep,name=members,proto3" json:"members,omitempty"`
-	// Name of the chat for the CHAT_CREATED/NAME_CHANGED event common
+	// Name of the chat for the CHAT_CREATED/NAME_CHANGED event types
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	// The type of the event
 	Type                 MembershipUpdateEvent_EventType `protobuf:"varint,4,opt,name=type,proto3,enum=protobuf.MembershipUpdateEvent_EventType" json:"type,omitempty"`

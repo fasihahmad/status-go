@@ -36,7 +36,7 @@ type nimbusWhisperWrapper struct {
 	routineQueue     *RoutineQueue
 }
 
-// NewNimbusWhisperWrapper returns an object that wraps Nimbus' Whisper in a common interface
+// NewNimbusWhisperWrapper returns an object that wraps Nimbus' Whisper in a types interface
 func NewNimbusWhisperWrapper(routineQueue *RoutineQueue) types.Whisper {
 	return &nimbusWhisperWrapper{
 		timesource:     func() time.Time { return time.Now() },

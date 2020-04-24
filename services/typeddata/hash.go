@@ -31,7 +31,7 @@ func ValidateAndHash(typed TypedData, chain *big.Int) (common.Hash, error) {
 }
 
 // deps runs breadth-first traversal starting from target and collects all
-// found composite dependencies common into result slice. target always will be first
+// found composite dependencies types into result slice. target always will be first
 // in the result array. all other dependencies are sorted alphabetically.
 // for example: Z{c C, a A} A{c C} and the target is Z.
 // result would be Z, A, B, C

@@ -11,7 +11,7 @@ import (
 
 func createMessagesRequest(from, to uint32, cursor []byte, topics []types.TopicType) types.MessagesRequest {
 	aUUID := uuid.New()
-	// uuid is 16 bytes, converted to hex it's 32 bytes as expected by common.MessagesRequest
+	// uuid is 16 bytes, converted to hex it's 32 bytes as expected by types.MessagesRequest
 	id := []byte(hex.EncodeToString(aUUID[:]))
 	return types.MessagesRequest{
 		ID:     id,

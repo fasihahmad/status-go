@@ -36,7 +36,7 @@ func TestUnregisterReplacedRequest(t *testing.T) {
 	require.NoError(t, registry.Register(unreg, topics))
 	replacement := types.Hash{2}
 	require.NoError(t, registry.Register(replacement, topics))
-	// record should be replaced with common.Hash{2}, so when we will remove unreg it will not affect topics map
+	// record should be replaced with types.Hash{2}, so when we will remove unreg it will not affect topics map
 	registry.Unregister(unreg)
 	record, exist := registry.uidToTopics[replacement]
 	require.True(t, exist, "replaced record should exist")

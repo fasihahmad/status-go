@@ -26,7 +26,7 @@ type DB interface {
 }
 
 // TopicHistoryKey defines bytes that are used as unique key for TopicHistory.
-// first 4 bytes are common.TopicType bytes
+// first 4 bytes are types.TopicType bytes
 // next 8 bytes are time.Duration encoded in big endian notation.
 type TopicHistoryKey [12]byte
 

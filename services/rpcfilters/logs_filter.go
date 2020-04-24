@@ -39,7 +39,7 @@ func (f *logsFilter) criteria() ethereum.FilterQuery {
 func (f *logsFilter) add(data interface{}) error {
 	logs, ok := data.([]types.Log)
 	if !ok {
-		return fmt.Errorf("can't cast %v to common.Log", data)
+		return fmt.Errorf("can't cast %v to types.Log", data)
 	}
 	filtered := filterLogs(logs, f.crit)
 	if len(filtered) > 0 {

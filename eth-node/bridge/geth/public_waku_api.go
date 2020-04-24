@@ -14,7 +14,7 @@ type gethPublicWakuAPIWrapper struct {
 	api *waku.PublicWakuAPI
 }
 
-// NewGethPublicWakuAPIWrapper returns an object that wraps Geth's PublicWakuAPI in a common interface
+// NewGethPublicWakuAPIWrapper returns an object that wraps Geth's PublicWakuAPI in a types interface
 func NewGethPublicWakuAPIWrapper(api *waku.PublicWakuAPI) types.PublicWakuAPI {
 	if api == nil {
 		panic("PublicWakuAPI cannot be nil")

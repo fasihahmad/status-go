@@ -13,7 +13,7 @@ type gethWakuWrapper struct {
 	waku *waku.Waku
 }
 
-// NewGethWakuWrapper returns an object that wraps Geth's Waku in a common interface
+// NewGethWakuWrapper returns an object that wraps Geth's Waku in a types interface
 func NewGethWakuWrapper(w *waku.Waku) types.Waku {
 	if w == nil {
 		panic("waku cannot be nil")
@@ -175,7 +175,7 @@ type wakuFilterWrapper struct {
 	id     string
 }
 
-// NewWakuFilterWrapper returns an object that wraps Geth's Filter in a common interface
+// NewWakuFilterWrapper returns an object that wraps Geth's Filter in a types interface
 func NewWakuFilterWrapper(f *wakucommon.Filter, id string) types.Filter {
 	if f.Messages == nil {
 		panic("Messages should not be nil")

@@ -34,7 +34,7 @@ func (f Field) Validate() error {
 
 // TypedData defines typed data according to eip-712.
 type TypedData struct {
-	Types       Types                      `json:"common"`
+	Types       Types                      `json:"types"`
 	PrimaryType string                     `json:"primaryType"`
 	Domain      map[string]json.RawMessage `json:"domain"`
 	Message     map[string]json.RawMessage `json:"message"`
@@ -45,13 +45,13 @@ type TypedData struct {
 // when type string is computed.
 func (t TypedData) Validate() error {
 	if _, exist := t.Types[eip712Domain]; !exist {
-		return fmt.Errorf("`%s` must be in `common`", eip712Domain)
+		return fmt.Errorf("`%s` must be in `types`", eip712Domain)
 	}
 	if t.PrimaryType == "" {
 		return errors.New("`primaryType` is required")
 	}
 	if _, exist := t.Types[t.PrimaryType]; !exist {
-		return fmt.Errorf("primary type `%s` not defined in common", t.PrimaryType)
+		return fmt.Errorf("primary type `%s` not defined in types", t.PrimaryType)
 	}
 	if t.Domain == nil {
 		return errors.New("`domain` is required")

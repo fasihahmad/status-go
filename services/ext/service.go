@@ -43,7 +43,7 @@ const (
 	defaultTimeoutWaitAdded = 5 * time.Second
 )
 
-// EnvelopeEventsHandler used for two different event common.
+// EnvelopeEventsHandler used for two different event types.
 type EnvelopeEventsHandler interface {
 	EnvelopeSent([][]byte)
 	EnvelopeExpired([][]byte, error)

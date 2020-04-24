@@ -605,7 +605,7 @@ func (c *controlCommand) LoadTransfers(ctx context.Context, downloader *ETHTrans
 /*
 // verifyLastSynced verifies that last header that was added to the database is still in the canonical chain.
 // it is done by downloading configured number of parents for the last header in the db.
-func (c *controlCommand) verifyLastSynced(parent context.Context, last *DBHeader, head *common.Header) error {
+func (c *controlCommand) verifyLastSynced(parent context.Context, last *DBHeader, head *types.Header) error {
 	log.Debug("verifying that previous header is still in canonical chan", "from", last.Number, "chain head", head.Number)
 	if new(big.Int).Sub(head.Number, last.Number).Cmp(c.safetyDepth) <= 0 {
 		log.Debug("no need to verify. last block is close enough to chain head")
